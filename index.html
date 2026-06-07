@@ -1256,60 +1256,6 @@ function searchStock(query, prefix) {
   searchTimer = setTimeout(() => liveSearch(query, prefix), 350);
 }
 
-async function liveSearch(query, prefix) {
-  const dropdown = document.getElementById(prefix + '-dropdown');
-  const encodedQ = encodeURIComponent(query);
-
-  // Try direct Yahoo first, fall back to corsproxy
-  const urls = [
-    `https://query1.finance.yahoo.com/v1/finance/search?q=${encodedQ}&lang=en-US&region=IN&quotesCount=8&newsCount=0&listsCount=0`,
-    `https://corsproxy.io/?https://query1.finance.yahoo.com/v1/finance/search?q=${encodedQ}&lang=en-US&region=IN&quotesCount=8&newsCount=0&listsCount=0`
-  ];
-
-  let results = null;
-
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-      if (!res.ok) continue;
-      const data = await res.json();
-      results = data?.quotes || [];
-      break;
-    } catch { continue; }
-  }
-
-  if (!results) {
-    dropdown.innerHTML = `<div style="padding:12px 14px;font-size:13px;color:var(--text3)">Could not search — check connection</div>`;
-    return;
-  }
-
-  // Filter for Indian stocks only (NSE = .NS, BSE = .BO)
-  const indian = results.filter(q =>
-    q.symbol && (q.symbol.endsWith('.NS') || q.symbol.endsWith('.BO')) &&
-    q.quoteType === 'EQUITY'
-  );
-
-  if (indian.length === 0) {
-    dropdown.innerHTML = `<div style="padding:12px 14px;font-size:13px;color:var(--text3)">No Indian stocks found for "${query}"</div>`;
-    return;
-  }
-
-  dropdown.innerHTML = indian.map(q => {
-    const name   = q.longname || q.shortname || q.symbol;
-    const sym    = q.symbol.replace('.NS','').replace('.BO','');
-    const exch   = q.symbol.endsWith('.NS') ? 'NSE' : 'BSE';
-    const exchColor = exch === 'NSE' ? 'var(--accent)' : 'var(--yellow)';
-    return `
-    <div class="stock-option" onmousedown="selectStock('${name.replace(/'/g,"\\'")}','${sym}','${q.symbol}','${prefix}')">
-      <div style="min-width:0;flex:1">
-        <div class="stock-option-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
-        <div class="stock-option-ticker">${sym}</div>
-      </div>
-      <div class="stock-option-exchange" style="color:${exchColor};margin-left:8px">${exch}</div>
-    </div>`;
-  }).join('');
-}
-
 function hideDropdown(prefix, delay) {
   setTimeout(() => {
     const d = document.getElementById(prefix + '-dropdown');
@@ -1320,51 +1266,79 @@ function hideDropdown(prefix, delay) {
 function selectStock(name, sym, ticker, prefix) {
   document.getElementById(prefix + '-stock').value = sym;
   document.getElementById(prefix + '-dropdown').style.display = 'none';
-  if (prefix === 'gem') fetchStockData(ticker, sym);
+  if (prefix === 'gem') fetchStockData(ticker);
 }
 
-async function fetchStockData(ticker, sym) {
+async function liveSearch(query, prefix) {
+  const dropdown = document.getElementById(prefix + '-dropdown');
+  try {
+    const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+      signal: AbortSignal.timeout(6000)
+    });
+    if (!res.ok) throw new Error('Search failed');
+    const data = await res.json();
+    const results = data.quotes || [];
+
+    // Filter Indian stocks only
+    const indian = results.filter(q =>
+      q.symbol && (q.symbol.endsWith('.NS') || q.symbol.endsWith('.BO')) &&
+      q.quoteType === 'EQUITY'
+    );
+
+    if (indian.length === 0) {
+      dropdown.innerHTML = `<div style="padding:12px 14px;font-size:13px;color:var(--text3)">No Indian stocks found for "${query}"</div>`;
+      return;
+    }
+
+    dropdown.innerHTML = indian.map(q => {
+      const name  = q.longname || q.shortname || q.symbol;
+      const sym   = q.symbol.replace('.NS','').replace('.BO','');
+      const exch  = q.symbol.endsWith('.NS') ? 'NSE' : 'BSE';
+      const exchColor = exch === 'NSE' ? 'var(--accent)' : 'var(--yellow)';
+      return `
+      <div class="stock-option" onmousedown="selectStock('${name.replace(/'/g,"\\'")}','${sym}','${q.symbol}','${prefix}')">
+        <div style="min-width:0;flex:1">
+          <div class="stock-option-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+          <div class="stock-option-ticker">${sym}</div>
+        </div>
+        <div class="stock-option-exchange" style="color:${exchColor};margin-left:8px">${exch}</div>
+      </div>`;
+    }).join('');
+
+  } catch (e) {
+    dropdown.innerHTML = `<div style="padding:12px 14px;font-size:13px;color:var(--text3)">Search unavailable — enter stock name manually</div>`;
+  }
+}
+
+async function fetchStockData(ticker) {
   const status = document.getElementById('gem-fetch-status');
   status.className = 'fetch-status loading';
   status.innerHTML = '⟳ Fetching CMP and PE…';
   status.style.display = 'flex';
 
-  const urls = [
-    `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=price,summaryDetail`,
-    `https://corsproxy.io/?https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=price,summaryDetail`
-  ];
+  try {
+    const res = await fetch(`/api/quote?ticker=${encodeURIComponent(ticker)}`, {
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!res.ok) throw new Error('Quote failed');
+    const data = await res.json();
 
-  let result = null;
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-      if (!res.ok) continue;
-      const data = await res.json();
-      result = data?.quoteSummary?.result?.[0];
-      if (result) break;
-    } catch { continue; }
-  }
+    if (data.pe) {
+      document.getElementById('gem-pe').value = data.pe.toFixed(1);
+      calcGEM();
+    }
 
-  if (!result) {
+    status.className = 'fetch-status success';
+    const cmpText = data.price ? `CMP ₹${data.price.toLocaleString('en-IN',{maximumFractionDigits:2})}` : '';
+    const peText  = data.pe    ? `PE ${data.pe.toFixed(1)}x (trailing)` : 'PE unavailable — enter manually';
+    status.innerHTML = `✓ ${[cmpText, peText].filter(Boolean).join(' · ')} <span style="color:var(--text3);margin-left:4px">— verify on Screener.in</span>`;
+    setTimeout(() => { status.style.display = 'none'; }, 7000);
+
+  } catch (e) {
     status.className = 'fetch-status error';
     status.innerHTML = '⚠ Could not fetch data — enter PE manually from Screener.in';
     setTimeout(() => { status.style.display = 'none'; }, 4000);
-    return;
   }
-
-  const price = result?.price?.regularMarketPrice?.raw;
-  const pe    = result?.summaryDetail?.trailingPE?.raw;
-
-  if (pe) {
-    document.getElementById('gem-pe').value = pe.toFixed(1);
-    calcGEM();
-  }
-
-  status.className = 'fetch-status success';
-  const cmpText = price ? `CMP ₹${price.toLocaleString('en-IN',{maximumFractionDigits:2})}` : '';
-  const peText  = pe    ? `PE ${pe.toFixed(1)}x (trailing)` : 'PE unavailable — enter manually';
-  status.innerHTML = `✓ ${[cmpText, peText].filter(Boolean).join(' · ')} <span style="color:var(--text3);margin-left:4px">— verify on Screener.in</span>`;
-  setTimeout(() => { status.style.display = 'none'; }, 7000);
 }
 
 // ── GEM CALCULATOR ────────────────────────────────────────────────
