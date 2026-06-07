@@ -1,4 +1,4 @@
-const CACHE = 'stocklens-v1';
+const CACHE = 'stocklens-v2';
 const ASSETS = ['/', '/index.html'];
 
 self.addEventListener('install', e => {
