@@ -449,12 +449,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="field-row">
         <div class="field" style="margin:0">
           <label>Stock name</label>
-          <div class="search-wrapper">
-            <input type="text" id="gem-stock" placeholder="Search e.g. Airtel, TCS…" autocomplete="off" autocapitalize="off"
-              oninput="searchStock(this.value,'gem')" onblur="hideDropdown('gem',300)">
-            <div id="gem-dropdown" class="stock-dropdown" style="display:none"></div>
-          </div>
-          <div id="gem-fetch-status" class="fetch-status"></div>
+          <input type="text" id="gem-stock" placeholder="e.g. TCS" autocomplete="off" autocapitalize="characters">
         </div>
         <div class="field" style="margin:0">
           <label>Date</label>
@@ -608,11 +603,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="field-row">
         <div class="field" style="margin:0">
           <label>Stock name</label>
-          <div class="search-wrapper">
-            <input type="text" id="tr-stock" placeholder="Search e.g. Airtel, TCS…" autocomplete="off" autocapitalize="off"
-              oninput="searchStock(this.value,'tr')" onblur="hideDropdown('tr',300)">
-            <div id="tr-dropdown" class="stock-dropdown" style="display:none"></div>
-          </div>
+          <input type="text" id="tr-stock" placeholder="e.g. Airtel" autocapitalize="characters" autocomplete="off">
         </div>
         <div class="field" style="margin:0">
           <label>Date</label>
