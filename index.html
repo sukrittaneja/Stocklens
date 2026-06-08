@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0D1117">
+<title>StockLens</title>
+<link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0D1117;
+  --surface:#161B22;
+  --surface2:#21262D;
+  --border:#30363D;
+  --border2:#444C56;
+  --text:#E6EDF3;
+  --text2:#8B949E;
+  --text3:#6E7681;
+  --accent:#3B82F6;
+  --accent-dim:#1D4ED8;
+  --green:#22C55E;
+  --green-bg:#0F2A1A;
+  --green-border:#166534;
+  --yellow:#F59E0B;
+  --yellow-bg:#2A1F00;
+  --yellow-border:#92400E;
+  --red:#EF4444;
+  --red-bg:#2A0F0F;
+  --red-border:#991B1B;
+  --amber:#F59E0B;
+  --r:12px;
+  --r-sm:8px;
+  --nav-h:64px;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;line-height:1.5}
+.mono{font-family:'DM Mono',monospace}
+
+/* ── LAYOUT ── */
+#app{display:flex;flex-direction:column;height:100%;height:100dvh}
+.screen{display:none;flex:1;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 16px)}
+.screen.active{display:block}
+
+/* ── BOTTOM NAV ── */
+#bottom-nav{
+  display:flex;align-items:stretch;
+  background:var(--surface);
+  border-top:1px solid var(--border);
+  height:calc(var(--nav-h) + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);
+  flex-shrink:0;position:relative;z-index:100
+}
+.nav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;border:none;background:transparent;color:var(--text3);cursor:pointer;
+  font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;
+  transition:color .15s;padding:8px 4px
+}
+.nav-btn.active{color:var(--accent)}
+.nav-btn svg{width:22px;height:22px;stroke-width:1.8}
+.nav-badge{
+  position:absolute;top:6px;right:calc(50% - 20px);
+  background:var(--red);color:#fff;font-size:10px;font-weight:600;
+  width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  display:none
+}
+
+/* ── HEADER ── */
+.screen-header{
+  padding:16px 16px 8px;
+  padding-top:calc(env(safe-area-inset-top) + 16px);
+  position:sticky;top:0;background:var(--bg);z-index:10;
+  border-bottom:1px solid var(--border)
+}
+.screen-header h1{font-size:20px;font-weight:600;letter-spacing:-.3px}
+.screen-header p{font-size:13px;color:var(--text2);margin-top:2px}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin:12px 16px 0}
+.card-header{font-size:12px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:12px}
+
+/* ── FORM ── */
+.field{margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:6px}
+.field input,.field textarea,.field select{
+  width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);
+  color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;padding:12px 14px;
+  outline:none;transition:border-color .15s;-webkit-appearance:none
+}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent)}
+.field textarea{resize:none;min-height:80px;line-height:1.5}
+.field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238B949E' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* ── COMPUTED ROW ── */
+.computed-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:11px 14px;background:var(--surface2);border-radius:var(--r-sm);
+  border:1px solid var(--border);margin-bottom:10px
+}
+.computed-row:last-child{margin-bottom:0}
+.computed-row .label{font-size:12px;color:var(--text2);font-weight:500}
+.computed-row .value{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--text)}
+.computed-row .value.good{color:var(--green)}
+.computed-row .value.warn{color:var(--yellow)}
+.computed-row .value.danger{color:var(--red)}
+
+/* ── SANITY BADGE ── */
+.sanity-badge{
+  display:flex;align-items:center;gap:8px;padding:10px 12px;
+  border-radius:var(--r-sm);font-size:12px;font-weight:500;margin-bottom:10px
+}
+.sanity-badge.ok{background:var(--green-bg);border:1px solid var(--green-border);color:var(--green)}
+.sanity-badge.warn{background:var(--yellow-bg);border:1px solid var(--yellow-border);color:var(--yellow)}
+.sanity-badge.extreme{background:var(--red-bg);border:1px solid var(--red-border);color:var(--red)}
+
+/* ── VERDICT CARD ── */
+.verdict-card{
+  margin:12px 16px 0;border-radius:var(--r);padding:20px;
+  display:flex;flex-direction:column;gap:6px
+}
+.verdict-card.green{background:var(--green-bg);border:1px solid var(--green-border)}
+.verdict-card.yellow{background:var(--yellow-bg);border:1px solid var(--yellow-border)}
+.verdict-card.red{background:var(--red-bg);border:1px solid var(--red-border)}
+.verdict-card.neutral{background:var(--surface);border:1px solid var(--border)}
+.verdict-label{font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;opacity:.7}
+.verdict-text{font-size:18px;font-weight:600;letter-spacing:-.2px}
+.verdict-card.green .verdict-label,.verdict-card.green .verdict-text{color:var(--green)}
+.verdict-card.yellow .verdict-label,.verdict-card.yellow .verdict-text{color:var(--yellow)}
+.verdict-card.red .verdict-label,.verdict-card.red .verdict-text{color:var(--red)}
+.verdict-card.neutral .verdict-label,.verdict-card.neutral .verdict-text{color:var(--text2)}
+.verdict-detail{font-size:13px;color:var(--text2);margin-top:2px}
+
+/* ── SECTION DIVIDER ── */
+.section-label{
+  font-size:11px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;
+  color:var(--text3);padding:16px 16px 6px
+}
+
+/* ── BUTTONS ── */
+.btn{
+  width:100%;padding:15px;border:none;border-radius:var(--r);
+  font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;
+  cursor:pointer;transition:opacity .15s,transform .1s;letter-spacing:.1px
+}
+.btn:active{transform:scale(.98);opacity:.85}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-danger{background:var(--red-bg);border:1px solid var(--red-border);color:var(--red)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.btn-row{display:flex;gap:10px;margin:12px 16px 0}
+.btn-row .btn{flex:1;width:auto}
+
+/* ── WATCHLIST ── */
+.watchlist-empty{text-align:center;padding:48px 24px;color:var(--text3)}
+.watchlist-empty svg{width:48px;height:48px;margin:0 auto 12px;display:block;stroke:var(--text3);opacity:.4}
+.watchlist-empty p{font-size:14px}
+
+.stock-item{
+  display:flex;align-items:center;gap:12px;padding:14px 16px;
+  border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s
+}
+.stock-item:last-child{border-bottom:none}
+.stock-item:active{background:var(--surface2)}
+.stock-avatar{
+  width:40px;height:40px;border-radius:10px;background:var(--surface2);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:600;font-size:13px;color:var(--accent);flex-shrink:0;
+  border:1px solid var(--border)
+}
+.stock-info{flex:1;min-width:0}
+.stock-name{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stock-meta{font-size:12px;color:var(--text3);margin-top:1px}
+.stock-action{font-size:12px;color:var(--accent);font-weight:500;flex-shrink:0}
+
+.review-banner{
+  margin:12px 16px 0;padding:12px 14px;background:var(--yellow-bg);
+  border:1px solid var(--yellow-border);border-radius:var(--r-sm);
+  display:flex;align-items:center;gap:10px;font-size:13px;color:var(--yellow)
+}
+
+/* ── SAVED LIST ── */
+.analysis-item{
+  display:flex;align-items:center;gap:12px;padding:14px 16px;
+  border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s
+}
+.analysis-item:last-child{border-bottom:none}
+.analysis-item:active{background:var(--surface2)}
+.verdict-dot{
+  width:10px;height:10px;border-radius:50%;flex-shrink:0
+}
+.verdict-dot.green{background:var(--green)}
+.verdict-dot.yellow{background:var(--yellow)}
+.verdict-dot.red{background:var(--red)}
+.verdict-dot.neutral{background:var(--text3)}
+.analysis-info{flex:1;min-width:0}
+.analysis-name{font-weight:600;font-size:15px}
+.analysis-meta{font-size:12px;color:var(--text3);margin-top:1px}
+.analysis-verdict{font-size:12px;font-weight:600;flex-shrink:0;text-align:right}
+.analysis-verdict.green{color:var(--green)}
+.analysis-verdict.yellow{color:var(--yellow)}
+.analysis-verdict.red{color:var(--red)}
+
+/* ── DETAIL VIEW ── */
+#screen-detail{padding-bottom:24px}
+.detail-header{
+  padding:16px;padding-top:calc(env(safe-area-inset-top) + 16px);
+  display:flex;align-items:center;gap:12px;
+  background:var(--bg);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:10
+}
+.back-btn{
+  background:var(--surface2);border:1px solid var(--border);
+  width:36px;height:36px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;transition:background .15s
+}
+.back-btn:active{background:var(--border)}
+.detail-title{font-size:18px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.detail-date{font-size:12px;color:var(--text3)}
+.detail-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 0;border-bottom:1px solid var(--border)
+}
+.detail-row:last-child{border-bottom:none}
+.detail-key{font-size:13px;color:var(--text2)}
+.detail-val{font-family:'DM Mono',monospace;font-size:13px;font-weight:500}
+
+/* ── ADD MODAL ── */
+#modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;
+  display:none;align-items:flex-end;justify-content:center
+}
+#modal-overlay.open{display:flex}
+.modal{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r) var(--r) 0 0;padding:20px;
+  width:100%;max-width:500px;
+  padding-bottom:calc(20px + env(safe-area-inset-bottom))
+}
+.modal-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 16px}
+.modal h2{font-size:17px;font-weight:600;margin-bottom:16px}
+
+/* ── TOAST ── */
+#toast{
+  position:fixed;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 12px);
+  left:50%;transform:translateX(-50%);
+  background:var(--surface2);border:1px solid var(--border2);
+  color:var(--text);font-size:14px;font-weight:500;
+  padding:11px 20px;border-radius:24px;
+  opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;
+  z-index:300
+}
+#toast.show{opacity:1}
+
+/* ── SEARCH ── */
+.search-bar{
+  display:flex;align-items:center;gap:10px;
+  background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);
+  padding:0 12px;margin:12px 16px 0
+}
+.search-bar svg{width:16px;height:16px;stroke:var(--text3);flex-shrink:0}
+.search-bar input{
+  flex:1;background:transparent;border:none;color:var(--text);
+  font-family:'DM Sans',sans-serif;font-size:15px;padding:12px 0;outline:none
+}
+
+/* ── EMPTY STATE ── */
+.empty-state{text-align:center;padding:48px 24px;color:var(--text3)}
+.empty-state svg{width:48px;height:48px;margin:0 auto 12px;display:block;stroke:var(--text3);opacity:.3}
+.empty-state p{font-size:14px;line-height:1.6}
+
+/* ── DIVIDER ── */
+.divider{height:1px;background:var(--border);margin:8px 0}
+
+/* ── TRIAGE ── */
+.triage-item{
+  padding:14px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  transition:background .15s
+}
+.triage-item:last-child{border-bottom:none}
+.triage-item.hard-stop{border-left:3px solid var(--red-border)}
+.triage-item.answered-yes{background:rgba(34,197,94,.06)}
+.triage-item.answered-no{background:rgba(239,68,68,.06)}
+.triage-item.answered-na{background:rgba(107,114,128,.04)}
+.triage-content{flex:1;min-width:0}
+.triage-label{font-size:14px;font-weight:500;color:var(--text);line-height:1.4}
+.triage-hint{font-size:12px;color:var(--text3);margin-top:4px;line-height:1.5}
+
+/* hard stop toggle */
+.triage-toggle{display:flex;gap:6px;flex-shrink:0;padding-top:2px}
+.toggle-btn{
+  width:32px;height:32px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text3);font-size:15px;font-weight:600;
+  cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center
+}
+.toggle-btn.active-yes{background:var(--green-bg);border-color:var(--green-border);color:var(--green)}
+.toggle-btn.active-no{background:var(--red-bg);border-color:var(--red-border);color:var(--red)}
+
+/* scored item buttons */
+.triage-btns{display:flex;gap:5px;flex-shrink:0;padding-top:2px;flex-direction:row}
+.tr-btn{
+  padding:5px 10px;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text3);font-size:12px;font-weight:600;
+  cursor:pointer;transition:all .15s;min-width:42px;text-align:center
+}
+.tr-btn.active-yes{background:var(--green-bg);border-color:var(--green-border);color:var(--green)}
+.tr-btn.active-no{background:var(--red-bg);border-color:var(--red-border);color:var(--red)}
+.tr-btn.active-na{background:var(--surface2);border-color:var(--border2);color:var(--text2)}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:0;height:0}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ══ SCREEN: HOME / WATCHLIST ══ -->
+  <div id="screen-home" class="screen active">
+    <div class="screen-header">
+      <h1>💎 StockLens</h1>
+      <p>Your personal GEM analyser</p>
+    </div>
+    <div id="review-banner" class="review-banner" style="display:none">
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+      <span id="review-text">stocks due for review</span>
+    </div>
+    <div style="margin:12px 16px 0;display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="openAddModal()" style="flex:1">+ Add to Watchlist</button>
+      <button class="btn btn-ghost" onclick="startNewAnalysis()" style="flex:1">Analyse Stock</button>
+    </div>
+    <p class="section-label">Watchlist</p>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div id="watchlist-list"></div>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN: GEM ANALYSIS ══ -->
+  <div id="screen-gem" class="screen">
+    <div class="screen-header">
+      <h1>GEM Analysis</h1>
+      <p>Growth Equivalence Model · Reverse-DCF</p>
+    </div>
+
+    <!-- How GEM Works — collapsible -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div onclick="toggleHelp()" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;user-select:none">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:18px">💡</span>
+          <span style="font-weight:600;font-size:14px">How GEM Works</span>
+        </div>
+        <span id="help-chevron" style="color:var(--text3);font-size:18px;transition:transform .2s">›</span>
+      </div>
+      <div id="help-body" style="display:none;padding:0 16px 16px;border-top:1px solid var(--border)">
+
+        <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-top:12px">
+          Imagine there's only <strong style="color:var(--text)">one other investor</strong> in the market. He's not very smart — he values every stock by running a DCF at a fixed <strong style="color:var(--text)">8% discount rate</strong> for exactly <strong style="color:var(--text)">10 years</strong>, assuming EPS grows at a fixed rate forever.
+        </p>
+
+        <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-top:10px">
+          This means every P/E ratio he's willing to pay <strong style="color:var(--text)">implies a specific growth rate</strong> he's betting on. GEM reverse-engineers that rate from the current PE.
+        </p>
+
+        <div style="background:var(--surface2);border-radius:8px;padding:12px 14px;margin:12px 0;border-left:3px solid var(--accent)">
+          <p style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">The logic:</p>
+          <p style="font-size:13px;color:var(--text2);line-height:1.8">
+            📌 Enter current PE → app looks up <strong style="color:var(--text)">Implied Growth</strong> (what market expects)<br>
+            📌 Enter EPS history → app calculates your <strong style="color:var(--text)">Actual Growth</strong> estimate<br>
+            📌 Compare the two:<br>
+            &nbsp;&nbsp;✅ Actual &gt; Implied → <span style="color:var(--green)">Undervalued</span> — market underestimates the business<br>
+            &nbsp;&nbsp;❌ Actual &lt; Implied → <span style="color:var(--red)">Overvalued</span> — you'd be paying for growth that won't come<br>
+            &nbsp;&nbsp;〰 Roughly equal → <span style="color:var(--yellow)">Fairly Valued</span>
+          </p>
+        </div>
+
+        <p style="font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Step by step</p>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <span style="background:var(--accent);color:#fff;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">1</span>
+            <p style="font-size:13px;color:var(--text2);line-height:1.6">Go to <strong style="color:var(--text)">Screener.in</strong> → search your stock → Profit &amp; Loss → EPS row. Note the EPS from 5 years ago and the most recent year.</p>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <span style="background:var(--accent);color:#fff;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">2</span>
+            <p style="font-size:13px;color:var(--text2);line-height:1.6">Enter both EPS values. The app calculates <strong style="color:var(--text)">CAGR</strong> automatically. Apply a <strong style="color:var(--text)">20-30% haircut</strong> (built in) to be conservative.</p>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <span style="background:var(--accent);color:#fff;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">3</span>
+            <p style="font-size:13px;color:var(--text2);line-height:1.6">If CAGR looks wrong (COVID years, one-off gains), enter your own estimate in the <strong style="color:var(--text)">Override</strong> field instead.</p>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <span style="background:var(--accent);color:#fff;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">4</span>
+            <p style="font-size:13px;color:var(--text2);line-height:1.6">Enter the current <strong style="color:var(--text)">P/E ratio</strong> (consolidated, fully diluted — from Screener.in). The app auto-looks up the implied growth rate.</p>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <span style="background:var(--accent);color:#fff;font-size:11px;font-weight:700;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">5</span>
+            <p style="font-size:13px;color:var(--text2);line-height:1.6">Read the <strong style="color:var(--text)">verdict</strong>. A positive gap means the market is underpricing the growth you expect.</p>
+          </div>
+        </div>
+
+        <div style="background:var(--red-bg);border:1px solid var(--red-border);border-radius:8px;padding:12px 14px;margin-top:12px">
+          <p style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:6px">⚠ When NOT to use GEM</p>
+          <p style="font-size:12px;color:var(--text2);line-height:1.8">
+            ❌ EPS is negative or near-zero<br>
+            ❌ Banks / NBFCs — use Price-to-Book instead<br>
+            ❌ Highly cyclical businesses (metals, commodities)<br>
+            ✅ Best for: growth cos, industrials, manufacturing, chemicals, capital goods, railways
+          </p>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:8px;padding:10px 14px;margin-top:10px">
+          <p style="font-size:12px;color:var(--text3);line-height:1.7">
+            <strong style="color:var(--text2)">Haircut explained:</strong> Historical CAGR assumes the past repeats. A 25% haircut means if past CAGR was 20%, you use 15% as your estimate — building in a margin of safety for uncertainty.
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Stock info -->
+    <div class="card">
+      <div class="field-row">
+        <div class="field" style="margin:0">
+          <label>Stock name</label>
+          <input type="text" id="gem-stock" placeholder="e.g. TCS" autocomplete="off" autocapitalize="characters">
+        </div>
+        <div class="field" style="margin:0">
+          <label>Date</label>
+          <input type="date" id="gem-date">
+        </div>
+      </div>
+    </div>
+
+    <!-- Section A -->
+    <p class="section-label">Section A — EPS Data
+      <span style="font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;font-size:11px;display:block;margin-top:2px">Screener.in → Profit &amp; Loss → EPS row → pick oldest and latest annual value</span>
+    </p>
+    <div class="card">
+      <div class="field-row">
+        <div class="field" style="margin:0">
+          <label>Oldest EPS (₹)</label>
+          <input type="number" id="gem-eps-old" placeholder="e.g. 45.2" inputmode="decimal" oninput="calcGEM()">
+        </div>
+        <div class="field" style="margin:0">
+          <label>Latest EPS (₹)</label>
+          <input type="number" id="gem-eps-new" placeholder="e.g. 131.8" inputmode="decimal" oninput="calcGEM()">
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <div class="field-row">
+          <div class="field" style="margin:0">
+            <label>Number of years</label>
+            <input type="number" id="gem-years" value="5" inputmode="numeric" oninput="calcGEM()">
+          </div>
+          <div class="field" style="margin:0">
+            <label>Haircut %</label>
+            <input type="number" id="gem-haircut" value="25" min="0" max="50" inputmode="numeric" oninput="calcGEM()">
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <div class="computed-row">
+          <span class="label">Auto-Calculated CAGR</span>
+          <span class="value mono" id="out-cagr">—</span>
+        </div>
+        <div id="sanity-badge" class="sanity-badge ok" style="display:none"></div>
+        <div class="computed-row">
+          <span class="label">Conservative Growth (after haircut)</span>
+          <span class="value mono" id="out-cons-growth">—</span>
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px;margin-bottom:0">
+        <label>Override growth % <span style="color:var(--text3);font-weight:400">(optional — leave blank to use above)</span></label>
+        <input type="number" id="gem-override" placeholder="e.g. 12 for 12%" inputmode="decimal" oninput="calcGEM()">
+        <p style="font-size:11px;color:var(--text3);margin-top:5px">Use this if CAGR looks wrong — COVID years, one-off gains, or very low base EPS distort the calculation</p>
+      </div>
+      <div style="margin-top:10px">
+        <div class="computed-row" style="border-color:var(--accent);background:rgba(59,130,246,.08)">
+          <span class="label" style="color:var(--accent)">✓ Effective Growth Used</span>
+          <span class="value mono" id="out-eff-growth" style="color:var(--accent)">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section B -->
+    <p class="section-label">Section B — Market Data
+      <span style="font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;font-size:11px;display:block;margin-top:2px">Screener.in → top of stock page → use consolidated, fully diluted P/E</span>
+    </p>
+    <div class="card">
+      <div class="field">
+        <label>Current P/E Ratio (fully diluted, consolidated)</label>
+        <input type="number" id="gem-pe" placeholder="e.g. 22.0" inputmode="decimal" oninput="calcGEM()">
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;gap:8px;align-items:flex-start">
+            <span style="background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0;margin-top:1px">Consolidated</span>
+            <p style="font-size:12px;color:var(--text3);line-height:1.6">Parent + subsidiaries combined. Always use this. For most companies the Screener.in PE is already consolidated — just make sure you're on the consolidated tab.</p>
+          </div>
+          <div style="display:flex;gap:8px;align-items:flex-start">
+            <span style="background:var(--surface2);color:var(--text2);font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;border:1px solid var(--border);flex-shrink:0;margin-top:1px">Fully diluted</span>
+            <p style="font-size:12px;color:var(--text3);line-height:1.6">For most Indian manufacturing, chemicals, and industrial companies the difference from basic PE is negligible. Don't overthink it — use whatever Screener.in shows. Only matters significantly for IT companies or businesses with heavy ESOPs.</p>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:4px">
+        <div class="computed-row">
+          <span class="label">Market's Implied Growth</span>
+          <span class="value mono" id="out-implied">—</span>
+        </div>
+        <div class="computed-row">
+          <span class="label">Your Actual Growth</span>
+          <span class="value mono" id="out-actual">—</span>
+        </div>
+        <div class="computed-row">
+          <span class="label">Growth Gap (Actual − Implied)</span>
+          <span class="value mono" id="out-gap">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Verdict -->
+    <div id="verdict-card" class="verdict-card neutral">
+      <span class="verdict-label">GEM Verdict</span>
+      <span class="verdict-text" id="verdict-text">Enter data above</span>
+      <span class="verdict-detail" id="verdict-detail">Fill in EPS and PE to get your analysis</span>
+    </div>
+
+    <!-- PE Lookup Table button -->
+    <div style="margin:10px 16px 0">
+      <button class="btn btn-ghost" onclick="openPETable()" style="display:flex;align-items:center;justify-content:center;gap:8px">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18M10 3v18M14 3v18M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6z"/></svg>
+        View PE → Implied Growth Table
+      </button>
+    </div>
+
+    <!-- Notes -->
+    <p class="section-label">Notes</p>
+    <div class="card">
+      <div class="field" style="margin:0">
+        <textarea id="gem-notes" placeholder="Key thesis, red flags, reasons to watch..."></textarea>
+      </div>
+    </div>
+
+    <!-- Save button -->
+    <div style="margin:16px 16px 0">
+      <button class="btn btn-primary" onclick="saveAnalysis()">Save Analysis</button>
+    </div>
+    <div style="margin:10px 16px 0">
+      <button class="btn btn-ghost" onclick="resetGEM()">Clear / New Analysis</button>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN: SAVED ══ -->
+  <div id="screen-saved" class="screen">
+    <div class="screen-header">
+      <h1>Saved Analyses</h1>
+      <p>Tap any entry to view full breakdown</p>
+    </div>
+    <div class="search-bar">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35" stroke-linecap="round"/></svg>
+      <input type="text" id="search-input" placeholder="Search stock..." oninput="renderSaved()">
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;margin-top:12px">
+      <div id="saved-list"></div>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN: QUICK TRIAGE ══ -->
+  <div id="screen-triage" class="screen">
+    <div class="screen-header">
+      <h1>Quick Triage</h1>
+      <p>12-point filter · 5 minutes · Worth a deep dive?</p>
+    </div>
+
+    <!-- Stock info -->
+    <div class="card">
+      <div class="field-row">
+        <div class="field" style="margin:0">
+          <label>Stock name</label>
+          <input type="text" id="tr-stock" placeholder="e.g. Airtel" autocapitalize="characters" autocomplete="off">
+        </div>
+        <div class="field" style="margin:0">
+          <label>Date</label>
+          <input type="date" id="tr-date">
+        </div>
+      </div>
+    </div>
+
+    <!-- Hard stops -->
+    <p class="section-label">🚩 Hard Stops
+      <span style="font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;font-size:11px;display:block;margin-top:2px">Any one ❌ = auto Skip regardless of score</span>
+    </p>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="triage-item hard-stop" data-id="hs1">
+        <div class="triage-content">
+          <div class="triage-label">Understand the business?</div>
+          <div class="triage-hint">Can you explain in 2 sentences how it makes money and what the main risk is? If not — skip and research first.</div>
+        </div>
+        <div class="triage-toggle" data-id="hs1">
+          <button class="toggle-btn yes" onclick="setHardStop('hs1','yes')">✓</button>
+          <button class="toggle-btn no" onclick="setHardStop('hs1','no')">✗</button>
+        </div>
+      </div>
+      <div class="triage-item hard-stop" data-id="hs2">
+        <div class="triage-content">
+          <div class="triage-label">No governance / fraud red flags?</div>
+          <div class="triage-hint">Recent scams, SEBI action, auditor resignations, or anything that made news for wrong reasons.</div>
+        </div>
+        <div class="triage-toggle" data-id="hs2">
+          <button class="toggle-btn yes" onclick="setHardStop('hs2','yes')">✓</button>
+          <button class="toggle-btn no" onclick="setHardStop('hs2','no')">✗</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hard stop warning -->
+    <div id="hard-stop-warning" style="display:none;margin:10px 16px 0;padding:12px 14px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--r-sm)">
+      <p style="font-size:13px;color:var(--red);font-weight:600">🚩 Hard stop triggered — Skip this stock</p>
+      <p style="font-size:12px;color:var(--text3);margin-top:4px">One or more hard stop conditions failed. No point scoring the rest.</p>
+    </div>
+
+    <!-- Scored items -->
+    <div id="scored-section">
+
+      <!-- Business Quality -->
+      <p class="section-label">Business Quality</p>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="triage-item" data-id="t1">
+          <div class="triage-content">
+            <div class="triage-label">Promoter holding &gt; 50%, pledge &lt; 20%?</div>
+            <div class="triage-hint">Check shareholding pattern on Screener.in → Shareholding tab. Pledge % is shown separately.</div>
+          </div>
+          <div class="triage-btns" data-id="t1">
+            <button class="tr-btn tr-yes" onclick="setTriage('t1','yes')">Yes</button>
+            <button class="tr-btn tr-no" onclick="setTriage('t1','no')">No</button>
+            <button class="tr-btn tr-na" onclick="setTriage('t1','na')">N/A</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Financial Health -->
+      <p class="section-label">Financial Health
+        <span style="font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;font-size:11px;display:block;margin-top:2px">All on Screener.in — Ratios tab or 10-year data table</span>
+      </p>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="triage-item" data-id="t2">
+          <div class="triage-content">
+            <div class="triage-label">ROE — healthy and consistent?</div>
+            <div class="triage-hint">No fixed threshold — judge for the sector. Ideally stable or improving over 3-5 years, not just one good year.</div>
+          </div>
+          <div class="triage-btns" data-id="t2">
+            <button class="tr-btn tr-yes" onclick="setTriage('t2','yes')">Yes</button>
+            <button class="tr-btn tr-no" onclick="setTriage('t2','no')">No</button>
+            <button class="tr-btn tr-na" onclick="setTriage('t2','na')">N/A</button>
+          </div>
+        </div>
+        <div class="triage-item" data-id="t3">
+          <div class="triage-content">
+            <div class="triage-label">ROCE — healthy and consistent?</div>
+            <div class="triage-hint">Return on Capital Employed. More relevant than ROE for capital-intensive businesses. Look for consistency.</div>
+          </div>
+          <div class="triage-btns" data-id="t3">
+            <button class="tr-btn tr-yes" onclick="setTriage('t3','yes')">Yes</button>
+            <button class="tr-btn tr-no" onclick="setTriage('t3','no')">No</button>
+            <button class="tr-btn tr-na" onclick="setTriage('t3','na')">N/A</button>
+          </div>
+        </div>
+        <div class="triage-item" data-id="t4">
+          <div class="triage-content">
+            <div class="triage-label">Net profit growing over last 3 years?</div>
+            <div class="triage-hint">Screener.in → P&L → Net Profit row. Should show a clear upward trend, not just one good year.</div>
+          </div>
+          <div class="triage-btns" data-id="t4">
+            <button class="tr-btn tr-yes" onclick="setTriage('t4','yes')">Yes</button>
+            <button class="tr-btn tr-no" onclick="setTriage('t4','no')">No</button>
+            <button class="tr-btn tr-na" onclick="setTriage('t4','na')">N/A</button>
+          </div>
+        </div>
+        <div class="triage-item" data-id="t5">
+          <div class="triage-content">
+            <div class="triage-label">Revenue growth &gt; 12% over 3 years?</div>
+            <div class="triage-hint">Screener.in → P&L → Sales/Revenue row. Profit growth backed by revenue growth is more reliable than cost-cutting alone.</div>
+          </div>
+          <div class="triage-btns" data-id="t5">
+            <button class="tr-btn tr-yes" onclick="setTriage('t5','yes')">Yes</button>
+            <button class="tr-btn tr-no" onclick="setTriage('t5','no')">No</button>
+            <button class="tr-btn tr-na" onclick="setTriage('t5','na')">N/A</button>
+          </div>
+        </div>
+        <div class="triage-item" data-id="t6">
+          <div class="triage-content">
+            <div class="triage-label">D/E ratio — acceptable for the sector?</div>
+            <div class="triage-hint">Manufacturing: ideally &lt; 0.5. Infra/Capital goods: up to 1-1.5 may be fine. Banks: ignore D/E, use other metrics.</div>
+          </div>
+          <div class="triage-btns" data-id="t6">
+            <button class="tr-btn tr-yes" onclick="setTriage('t6','yes')">Yes</button>
+            <button class="tr-btn tr-no" onclick="setTriage('t6','no')">No</button>
+            <button class="tr-btn tr-na" onclick="setTriage('t6','na')">N/A</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Valuation -->
+      <p class="section-label">Valuation</p>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="triage-item" data-id="t7">
+          <div class="triage-content">
+            <div class="triage-label">GEM verdict — undervalued or fair?</div>
+            <div class="triage-hint">Run GEM first in the Analyse tab. If overvalued by GEM, mark No. If you haven't run GEM yet, mark N/A.</div>
+          </div>
+          <div class="triage-btns" data-id="t7">
+            <button class="tr-btn tr-yes" onclick="setTriage('t7','yes')">Yes</button>
+            <button class="tr-btn tr-no" onclick="setTriage('t7','no')">No</button>
+            <button class="tr-btn tr-na" onclick="setTriage('t7','na')">N/A</button>
+          </div>
+        </div>
+        <div class="triage-item" data-id="t8">
+          <div class="triage-content">
+            <div class="triage-label">PE below or near its own 5yr average?</div>
+            <div class="triage-hint">Screener.in → Stock page → scroll to PE chart. Current PE vs historical average. Buying below historical average = margin of safety.</div>
+          </div>
+          <div class="triage-btns" data-id="t8">
+            <button class="tr-btn tr-yes" onclick="setTriage('t8','yes')">Yes</button>
+            <button class="tr-btn tr-no" onclick="setTriage('t8','no')">No</button>
+            <button class="tr-btn tr-na" onclick="setTriage('t8','na')">N/A</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Momentum & Context -->
+      <p class="section-label">Momentum & Context</p>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="triage-item" data-id="t9">
+          <div class="triage-content">
+            <div class="triage-label">EPS growing last 3 quarters?</div>
+            <div class="triage-hint">Screener.in → Quarters tab → EPS row. Three consecutive improving quarters = earnings momentum. Flat or declining = caution.</div>
+          </div>
+          <div class="triage-btns" data-id="t9">
+            <button class="tr-btn tr-yes" onclick="setTriage('t9','yes')">Yes</button>
+            <button class="tr-btn tr-no" onclick="setTriage('t9','no')">No</button>
+            <button class="tr-btn tr-na" onclick="setTriage('t9','na')">N/A</button>
+          </div>
+        </div>
+        <div class="triage-item" data-id="t10">
+          <div class="triage-content">
+            <div class="triage-label">FII / DII holdings increasing?</div>
+            <div class="triage-hint">Screener.in → Shareholding tab → check FII and DII trend over last 3-4 quarters. Smart money moving in is a positive signal.</div>
+          </div>
+          <div class="triage-btns" data-id="t10">
+            <button class="tr-btn tr-yes" onclick="setTriage('t10','yes')">Yes</button>
+            <button class="tr-btn tr-no" onclick="setTriage('t10','no')">No</button>
+            <button class="tr-btn tr-na" onclick="setTriage('t10','na')">N/A</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Score -->
+      <div id="triage-score-card" class="verdict-card neutral" style="margin:12px 16px 0">
+        <span class="verdict-label">Triage Score</span>
+        <span class="verdict-text" id="tr-score-text">Answer items above</span>
+        <span class="verdict-detail" id="tr-score-detail">Score updates as you answer</span>
+      </div>
+
+      <!-- Notes -->
+      <p class="section-label">Notes</p>
+      <div class="card">
+        <div class="field" style="margin:0">
+          <textarea id="tr-notes" placeholder="First impressions, key numbers, reasons to watch or skip..."></textarea>
+        </div>
+      </div>
+
+      <div style="margin:16px 16px 0">
+        <button class="btn btn-primary" onclick="saveTriage()">Save Triage</button>
+      </div>
+      <div style="margin:10px 16px 0">
+        <button class="btn btn-ghost" onclick="resetTriage()">Clear / New Triage</button>
+      </div>
+
+    </div><!-- end scored-section -->
+  </div><!-- end screen-triage -->
+
+
+  <div id="screen-detail" class="screen">
+    <div class="detail-header">
+      <div class="back-btn" onclick="goBack()">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/></svg>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="detail-title" id="detail-stock-name">—</div>
+        <div class="detail-date" id="detail-stock-date">—</div>
+      </div>
+    </div>
+    <div id="detail-content"></div>
+    <div style="margin:16px 16px 0">
+      <button class="btn btn-danger" onclick="deleteCurrentAnalysis()">Delete This Analysis</button>
+    </div>
+  </div>
+
+  <!-- ══ BOTTOM NAV ══ -->
+  <nav id="bottom-nav">
+    <button class="nav-btn active" onclick="navigate('home')" id="nav-home">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m3 12 2-2m0 0 7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m10-11 2 2m-2-2v10a1 1 0 0 1-1 1h-3m-6 0a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1m-6 0h6"/></svg>
+      Home
+    </button>
+    <button class="nav-btn" onclick="navigate('gem')" id="nav-gem">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2zm0 0V9a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v10m-6 0a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2m0 0V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/></svg>
+      GEM
+    </button>
+    <button class="nav-btn" onclick="navigate('triage')" id="nav-triage">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"/></svg>
+      Triage
+    </button>
+    <button class="nav-btn" onclick="navigate('saved')" id="nav-saved">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-7-3.5L5 21V5z"/></svg>
+      Saved
+      <span id="saved-badge" class="nav-badge" style="position:relative;top:0;right:0;margin-left:2px"></span>
+    </button>
+  </nav>
+</div>
+
+<!-- Add to watchlist modal -->
+<!-- PE Lookup Table Modal -->
+<div id="pe-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;display:none;flex-direction:column">
+  <div style="background:var(--surface);flex:1;overflow:hidden;display:flex;flex-direction:column;margin-top:60px;border-radius:var(--r) var(--r) 0 0;border:1px solid var(--border)">
+
+    <!-- Modal header -->
+    <div style="padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div>
+        <div style="font-size:16px;font-weight:600">📊 PE → Implied Growth Rate</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">What growth rate is the market pricing in?</div>
+      </div>
+      <button onclick="closePETable()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
+    </div>
+
+    <!-- How to read -->
+    <div style="padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0">
+      <p style="font-size:12px;color:var(--text2);line-height:1.6">
+        Find the current PE in the left column → the right column shows what annual EPS growth rate the market is assuming over 10 years at an 8% discount rate.
+        <strong style="color:var(--text)"> Your job: do you believe actual growth will beat that?</strong>
+      </p>
+    </div>
+
+    <!-- Search -->
+    <div style="padding:10px 16px;flex-shrink:0;border-bottom:1px solid var(--border)">
+      <div class="search-bar" style="margin:0">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35" stroke-linecap="round"/></svg>
+        <input type="number" id="pe-search" placeholder="Type a PE to jump to it..." inputmode="decimal" oninput="filterPETable()">
+      </div>
+    </div>
+
+    <!-- Table header -->
+    <div style="display:grid;grid-template-columns:80px 110px 1fr;gap:0;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0">
+      <span style="font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text3)">P/E</span>
+      <span style="font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text3)">Implied Growth</span>
+      <span style="font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--text3)">What market expects</span>
+    </div>
+
+    <!-- Table body -->
+    <div id="pe-table-body" style="overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch"></div>
+
+  </div>
+</div>
+
+<div id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Add to Watchlist</h2>
+    <div class="field">
+      <label>Stock Name</label>
+      <input type="text" id="modal-stock" placeholder="e.g. Infosys" autocapitalize="characters" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Notes (optional)</label>
+      <input type="text" id="modal-note" placeholder="Why you're watching it...">
+    </div>
+    <button class="btn btn-primary" onclick="addToWatchlist()" style="margin-top:4px">Add to Watchlist</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ── GEM LOOKUP TABLE ─────────────────────────────────────────────
+const GEM_TABLE = (() => {
+  const t = [];
+  for (let g10 = -200; g10 <= 510; g10 += 5) {
+    const g = g10 / 1000;
+    let pe = 0;
+    for (let i = 1; i <= 10; i++) pe += Math.pow((1 + g) / 1.08, i);
+    if (pe >= 3.0 && pe <= 100.0)
+      t.push([parseFloat(pe.toFixed(2)), parseFloat((g * 100).toFixed(1))]);
+  }
+  return t;
+})();
+
+function getImpliedGrowth(pe) {
+  if (!pe || isNaN(pe)) return null;
+  let res = null;
+  for (const [p, g] of GEM_TABLE) {
+    if (p <= pe) res = g;
+    else break;
+  }
+  return res;
+}
+
+// ── STORAGE ──────────────────────────────────────────────────────
+const Store = {
+  get(k) { try { return JSON.parse(localStorage.getItem('sl_' + k) || 'null'); } catch { return null; } },
+  set(k, v) { localStorage.setItem('sl_' + k, JSON.stringify(v)); },
+  getWatchlist() { return this.get('watch') || []; },
+  getAnalyses() { return this.get('analyses') || []; },
+  saveAnalysis(a) {
+    const list = this.getAnalyses();
+    list.unshift({ ...a, id: Date.now() });
+    this.set('analyses', list);
+  },
+  deleteAnalysis(id) {
+    this.set('analyses', this.getAnalyses().filter(a => a.id !== id));
+  }
+};
+
+// ── PE LOOKUP TABLE MODAL ─────────────────────────────────────────
+function growthLabel(g) {
+  if (g < -10) return 'Deep distress / near-zero earnings';
+  if (g < 0)   return 'Declining earnings expected';
+  if (g < 3)   return 'Stagnant / no real growth';
+  if (g < 8)   return 'Low single-digit growth';
+  if (g < 12)  return 'Moderate growth';
+  if (g < 18)  return 'Good growth';
+  if (g < 25)  return 'Strong growth';
+  if (g < 35)  return 'Very strong / high growth';
+  return 'Hyper growth (Zomato / Nykaa territory)';
+}
+
+function growthColor(g) {
+  if (g < 0)   return { text: 'var(--red)',    bg: 'var(--red-bg)' };
+  if (g < 5)   return { text: '#F97316',        bg: '#2A1200' };
+  if (g < 15)  return { text: 'var(--yellow)',  bg: 'var(--yellow-bg)' };
+  if (g < 25)  return { text: 'var(--green)',   bg: 'var(--green-bg)' };
+  return       { text: 'var(--accent)',          bg: '#0D1E40' };
+}
+
+let peTableRendered = false;
+
+function openPETable() {
+  const modal = document.getElementById('pe-modal');
+  modal.style.display = 'flex';
+  document.getElementById('pe-search').value = '';
+  if (!peTableRendered) { renderPETable(GEM_TABLE); peTableRendered = true; }
+}
+
+function closePETable() {
+  document.getElementById('pe-modal').style.display = 'none';
+}
+
+function filterPETable() {
+  const val = parseFloat(document.getElementById('pe-search').value);
+  if (isNaN(val)) { renderPETable(GEM_TABLE); return; }
+  // Show ±5 PE range around entered value, highlight closest
+  const filtered = GEM_TABLE.filter(([pe]) => pe >= val - 5 && pe <= val + 5);
+  renderPETable(filtered, val);
+  // Scroll to closest match
+  setTimeout(() => {
+    const highlighted = document.querySelector('.pe-row-highlight');
+    if (highlighted) highlighted.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, 50);
+}
+
+function renderPETable(data, highlight) {
+  const body = document.getElementById('pe-table-body');
+  // Find closest PE to highlight
+  let closestIdx = -1;
+  if (highlight !== undefined) {
+    let minDiff = Infinity;
+    data.forEach(([pe], i) => {
+      const diff = Math.abs(pe - highlight);
+      if (diff < minDiff) { minDiff = diff; closestIdx = i; }
+    });
+  }
+
+  body.innerHTML = data.map(([pe, g], i) => {
+    const { text, bg } = growthColor(g);
+    const label = growthLabel(g);
+    const isHighlight = i === closestIdx;
+    return `<div class="pe-row${isHighlight ? ' pe-row-highlight' : ''}"
+      style="display:grid;grid-template-columns:80px 110px 1fr;align-items:center;
+      padding:10px 16px;border-bottom:1px solid var(--border);
+      background:${isHighlight ? 'rgba(59,130,246,.12)' : 'transparent'};
+      ${isHighlight ? 'border-left:3px solid var(--accent);' : ''}">
+      <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:${isHighlight ? '700' : '500'};color:${isHighlight ? 'var(--accent)' : 'var(--text)'}">
+        ${pe.toFixed(1)}
+      </span>
+      <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:${text}">
+        ${g > 0 ? '' : ''}${g.toFixed(1)}%
+      </span>
+      <span style="font-size:12px;color:var(--text3)">${label}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── TRIAGE LOGIC ─────────────────────────────────────────────────
+const triageState = {
+  hs1: null, hs2: null,
+  t1: null, t2: null, t3: null, t4: null, t5: null,
+  t6: null, t7: null, t8: null, t9: null, t10: null
+};
+
+const SCORED_ITEMS = ['t1','t2','t3','t4','t5','t6','t7','t8','t9','t10'];
+const HARD_STOPS   = ['hs1','hs2'];
+
+function setHardStop(id, val) {
+  triageState[id] = val;
+  const btns = document.querySelectorAll(`.triage-toggle[data-id="${id}"] .toggle-btn`);
+  btns.forEach(b => {
+    b.classList.remove('active-yes','active-no');
+    if (b.classList.contains('yes') && val === 'yes') b.classList.add('active-yes');
+    if (b.classList.contains('no')  && val === 'no')  b.classList.add('active-no');
+  });
+  // Highlight row
+  const row = document.querySelector(`.triage-item[data-id="${id}"]`);
+  if (row) {
+    row.classList.remove('answered-yes','answered-no');
+    row.classList.add(val === 'yes' ? 'answered-yes' : 'answered-no');
+  }
+  updateTriageScore();
+}
+
+function setTriage(id, val) {
+  triageState[id] = val;
+  const btns = document.querySelectorAll(`.triage-btns[data-id="${id}"] .tr-btn`);
+  btns.forEach(b => {
+    b.classList.remove('active-yes','active-no','active-na');
+    if (b.classList.contains('tr-yes') && val === 'yes') b.classList.add('active-yes');
+    if (b.classList.contains('tr-no')  && val === 'no')  b.classList.add('active-no');
+    if (b.classList.contains('tr-na')  && val === 'na')  b.classList.add('active-na');
+  });
+  const row = document.querySelector(`.triage-item[data-id="${id}"]`);
+  if (row) {
+    row.classList.remove('answered-yes','answered-no','answered-na');
+    row.classList.add(`answered-${val}`);
+  }
+  updateTriageScore();
+}
+
+function updateTriageScore() {
+  // Check hard stops
+  const hardFailed = HARD_STOPS.some(id => triageState[id] === 'no');
+  const warning = document.getElementById('hard-stop-warning');
+  warning.style.display = hardFailed ? 'block' : 'none';
+
+  // Count scored items (yes = 1, no = 0, na = skip)
+  const answered = SCORED_ITEMS.filter(id => triageState[id] !== null);
+  const yes = SCORED_ITEMS.filter(id => triageState[id] === 'yes').length;
+  const total = SCORED_ITEMS.filter(id => triageState[id] !== 'na' && triageState[id] !== null).length;
+
+  const card  = document.getElementById('triage-score-card');
+  const txt   = document.getElementById('tr-score-text');
+  const det   = document.getElementById('tr-score-detail');
+
+  if (answered.length === 0) {
+    card.className = 'verdict-card neutral';
+    txt.textContent = 'Answer items above';
+    det.textContent = 'Score updates as you answer';
+    return;
+  }
+
+  if (hardFailed) {
+    card.className = 'verdict-card red';
+    txt.textContent = '🚩 Skip — Hard Stop Triggered';
+    det.textContent = 'One or more hard stop conditions failed. Do not proceed.';
+    return;
+  }
+
+  const scoreText = `${yes} / ${total} scored items`;
+  if (total < 5) {
+    card.className = 'verdict-card neutral';
+    txt.textContent = `${yes} / ${total} so far`;
+    det.textContent = 'Answer more items for a reliable verdict';
+    return;
+  }
+
+  if (yes >= 8) {
+    card.className = 'verdict-card green';
+    txt.textContent = `🟢 Deep Dive — ${scoreText}`;
+    det.textContent = 'Strong fundamentals. Worth running full GEM and checklist.';
+  } else if (yes >= 4) {
+    card.className = 'verdict-card yellow';
+    txt.textContent = `🟡 Watchlist — ${scoreText}`;
+    det.textContent = 'Some positives but gaps exist. Monitor and revisit in 1-2 quarters.';
+  } else {
+    card.className = 'verdict-card red';
+    txt.textContent = `🔴 Skip — ${scoreText}`;
+    det.textContent = 'Too many concerns. Find a better opportunity.';
+  }
+}
+
+function saveTriage() {
+  const stock = document.getElementById('tr-stock').value.trim().toUpperCase();
+  const date  = document.getElementById('tr-date').value;
+  if (!stock) { showToast('Enter a stock name first'); return; }
+
+  const hardFailed = HARD_STOPS.some(id => triageState[id] === 'no');
+  const yes = SCORED_ITEMS.filter(id => triageState[id] === 'yes').length;
+  const total = SCORED_ITEMS.filter(id => triageState[id] !== 'na' && triageState[id] !== null).length;
+
+  let verdictKey, verdictLabel;
+  if (hardFailed) { verdictKey = 'red'; verdictLabel = 'Skip'; }
+  else if (yes >= 8) { verdictKey = 'green'; verdictLabel = 'Deep Dive'; }
+  else if (yes >= 4) { verdictKey = 'yellow'; verdictLabel = 'Watchlist'; }
+  else { verdictKey = 'red'; verdictLabel = 'Skip'; }
+
+  Store.saveAnalysis({
+    stock, date, framework: 'Triage',
+    hardStops: { hs1: triageState.hs1, hs2: triageState.hs2 },
+    scores: SCORED_ITEMS.reduce((o,id) => ({...o,[id]:triageState[id]}),{}),
+    yesCount: yes, totalScored: total,
+    verdictKey, verdictLabel,
+    notes: document.getElementById('tr-notes').value.trim()
+  });
+
+  showToast('✓ Triage saved');
+  updateBadge();
+  resetTriage();
+  setTimeout(() => navigate('saved'), 600);
+}
+
+function resetTriage() {
+  HARD_STOPS.concat(SCORED_ITEMS).forEach(id => triageState[id] = null);
+  document.querySelectorAll('.toggle-btn,.tr-btn').forEach(b =>
+    b.classList.remove('active-yes','active-no','active-na'));
+  document.querySelectorAll('.triage-item').forEach(r =>
+    r.classList.remove('answered-yes','answered-no','answered-na'));
+  document.getElementById('tr-stock').value = '';
+  document.getElementById('tr-notes').value = '';
+  document.getElementById('tr-date').value = todayStr();
+  document.getElementById('hard-stop-warning').style.display = 'none';
+  updateTriageScore();
+}
+
+// ── TRIAGE DETAIL (in saved view) ────────────────────────────────
+const TRIAGE_LABELS = {
+  t1:'Promoter holding > 50%, pledge < 20%',
+  t2:'ROE — healthy and consistent',
+  t3:'ROCE — healthy and consistent',
+  t4:'Net profit growing over last 3 years',
+  t5:'Revenue growth > 12% over 3 years',
+  t6:'D/E ratio — acceptable for sector',
+  t7:'GEM verdict — undervalued or fair',
+  t8:'PE below or near 5yr average',
+  t9:'EPS growing last 3 quarters',
+  t10:'FII / DII holdings increasing',
+  hs1:'Understands the business',
+  hs2:'No governance / fraud red flags',
+};
+
+// ── NAVIGATION ───────────────────────────────────────────────────
+let currentScreen = 'home';
+let previousScreen = 'home';
+let currentDetailId = null;
+
+function navigate(screen) {
+  previousScreen = currentScreen;
+  currentScreen = screen;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + screen).classList.add('active');
+  const navBtn = document.getElementById('nav-' + screen);
+  if (navBtn) navBtn.classList.add('active');
+  document.getElementById('bottom-nav').style.display = screen === 'detail' ? 'none' : 'flex';
+  if (screen === 'home') renderWatchlist();
+  if (screen === 'saved') renderSaved();
+  window.scrollTo(0, 0);
+}
+
+function goBack() {
+  navigate(previousScreen === 'detail' ? 'saved' : previousScreen);
+}
+
+function startNewAnalysis() {
+  navigate('gem');
+}
+
+function toggleHelp() {
+  const body = document.getElementById('help-body');
+  const chevron = document.getElementById('help-chevron');
+  const open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  chevron.style.transform = open ? 'rotate(90deg)' : 'rotate(0deg)';
+}
+
+// ── GEM CALCULATOR ────────────────────────────────────────────────
+
+// ── GEM CALCULATOR ────────────────────────────────────────────────
+function calcGEM() {
+  const oldEPS = parseFloat(document.getElementById('gem-eps-old').value);
+  const newEPS = parseFloat(document.getElementById('gem-eps-new').value);
+  const years  = parseFloat(document.getElementById('gem-years').value) || 5;
+  const haircut = (parseFloat(document.getElementById('gem-haircut').value) || 25) / 100;
+  const overrideRaw = document.getElementById('gem-override').value.trim();
+  const pe = parseFloat(document.getElementById('gem-pe').value);
+
+  // CAGR
+  let cagr = null;
+  if (oldEPS > 0 && newEPS > 0 && years > 0) {
+    cagr = Math.pow(newEPS / oldEPS, 1 / years) - 1;
+  }
+
+  // Sanity
+  const sanity = document.getElementById('sanity-badge');
+  if (cagr !== null) {
+    sanity.style.display = 'flex';
+    if (cagr > 0.5 || cagr < -0.1) {
+      sanity.className = 'sanity-badge extreme';
+      sanity.textContent = '⚠ CAGR looks extreme — consider using the override field';
+    } else {
+      sanity.className = 'sanity-badge ok';
+      sanity.textContent = '✓ CAGR looks reasonable';
+    }
+  } else {
+    sanity.style.display = 'none';
+  }
+
+  // Conservative growth
+  const consGrowth = cagr !== null ? cagr * (1 - haircut) : null;
+
+  // Override
+  let effGrowth = consGrowth;
+  if (overrideRaw !== '') {
+    const ov = parseFloat(overrideRaw);
+    if (!isNaN(ov)) effGrowth = ov / 100;
+  }
+
+  // Implied from PE
+  const impliedRaw = getImpliedGrowth(pe);
+  const implied = impliedRaw !== null ? impliedRaw / 100 : null;
+
+  // Gap
+  const gap = (effGrowth !== null && implied !== null) ? effGrowth - implied : null;
+
+  // Update outputs
+  setText('out-cagr', cagr !== null ? fmt(cagr) : '—');
+  setText('out-cons-growth', consGrowth !== null ? fmt(consGrowth) : '—');
+  setText('out-eff-growth', effGrowth !== null ? fmt(effGrowth) : '—');
+  setText('out-implied', implied !== null ? fmt(implied) : '—');
+  setText('out-actual', effGrowth !== null ? fmt(effGrowth) : '—');
+  setText('out-gap', gap !== null ? (gap > 0 ? '+' : '') + fmt(gap) : '—');
+
+  // Color gap
+  const gapEl = document.getElementById('out-gap');
+  gapEl.className = 'value mono' + (gap === null ? '' : gap > 0.02 ? ' good' : gap < -0.02 ? ' danger' : ' warn');
+
+  // Verdict
+  updateVerdict(gap, effGrowth, implied);
+}
+
+function updateVerdict(gap, actual, implied) {
+  const card = document.getElementById('verdict-card');
+  const txt = document.getElementById('verdict-text');
+  const det = document.getElementById('verdict-detail');
+
+  if (gap === null) {
+    card.className = 'verdict-card neutral';
+    txt.textContent = 'Enter data above';
+    det.textContent = 'Fill in EPS and PE to get your analysis';
+    return;
+  }
+
+  const actPct = (actual * 100).toFixed(1);
+  const impPct = (implied * 100).toFixed(1);
+
+  if (gap > 0.02) {
+    card.className = 'verdict-card green';
+    txt.textContent = '🟢 Undervalued';
+    det.textContent = `Your growth estimate (${actPct}%) exceeds market expectation (${impPct}%). Market is pricing in less growth than you believe.`;
+  } else if (gap < -0.02) {
+    card.className = 'verdict-card red';
+    txt.textContent = '🔴 Overvalued';
+    det.textContent = `Market is pricing in ${impPct}% growth but you estimate only ${actPct}%. You'd be paying for growth that may not materialise.`;
+  } else {
+    card.className = 'verdict-card yellow';
+    txt.textContent = '🟡 Fairly Valued';
+    det.textContent = `Your estimate (${actPct}%) roughly matches the market's expectation (${impPct}%). Wait for a better entry or margin of safety.`;
+  }
+}
+
+function fmt(n) { return (n * 100).toFixed(1) + '%'; }
+function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+
+function saveAnalysis() {
+  const stock = document.getElementById('gem-stock').value.trim().toUpperCase();
+  const date = document.getElementById('gem-date').value;
+
+  if (!stock) { showToast('Enter a stock name first'); return; }
+
+  const oldEPS = parseFloat(document.getElementById('gem-eps-old').value);
+  const newEPS = parseFloat(document.getElementById('gem-eps-new').value);
+  const years  = parseFloat(document.getElementById('gem-years').value) || 5;
+  const haircut = parseFloat(document.getElementById('gem-haircut').value) || 25;
+  const overrideRaw = document.getElementById('gem-override').value.trim();
+  const pe = parseFloat(document.getElementById('gem-pe').value);
+  const notes = document.getElementById('gem-notes').value.trim();
+
+  let cagr = null;
+  if (oldEPS > 0 && newEPS > 0) cagr = Math.pow(newEPS / oldEPS, 1 / years) - 1;
+  const consGrowth = cagr !== null ? cagr * (1 - haircut / 100) : null;
+  let effGrowth = consGrowth;
+  if (overrideRaw !== '') { const ov = parseFloat(overrideRaw); if (!isNaN(ov)) effGrowth = ov / 100; }
+  const impliedRaw = getImpliedGrowth(pe);
+  const implied = impliedRaw !== null ? impliedRaw / 100 : null;
+  const gap = (effGrowth !== null && implied !== null) ? effGrowth - implied : null;
+
+  let verdictKey = 'neutral', verdictLabel = '—';
+  if (gap !== null) {
+    if (gap > 0.02) { verdictKey = 'green'; verdictLabel = 'Undervalued'; }
+    else if (gap < -0.02) { verdictKey = 'red'; verdictLabel = 'Overvalued'; }
+    else { verdictKey = 'yellow'; verdictLabel = 'Fairly Valued'; }
+  }
+
+  Store.saveAnalysis({
+    stock, date, framework: 'GEM',
+    oldEPS, newEPS, years, haircut,
+    override: overrideRaw ? parseFloat(overrideRaw) : null,
+    pe, cagr, consGrowth, effGrowth, implied, gap,
+    verdictKey, verdictLabel, notes
+  });
+
+  showToast('✓ Analysis saved');
+  updateBadge();
+  resetGEM();
+  setTimeout(() => navigate('saved'), 600);
+}
+
+function resetGEM() {
+  ['gem-stock','gem-eps-old','gem-eps-new','gem-override','gem-pe','gem-notes'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('gem-years').value = '5';
+  document.getElementById('gem-haircut').value = '25';
+  document.getElementById('gem-date').value = todayStr();
+  document.getElementById('sanity-badge').style.display = 'none';
+  ['out-cagr','out-cons-growth','out-eff-growth','out-implied','out-actual','out-gap'].forEach(id => setText(id, '—'));
+  document.getElementById('out-gap').className = 'value mono';
+  updateVerdict(null, null, null);
+}
+
+// ── WATCHLIST ─────────────────────────────────────────────────────
+function openAddModal() {
+  document.getElementById('modal-stock').value = '';
+  document.getElementById('modal-note').value = '';
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('modal-stock').focus(), 100);
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modal-overlay'))
+    document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function closeModalDirect() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function addToWatchlist() {
+  const name = document.getElementById('modal-stock').value.trim().toUpperCase();
+  if (!name) { showToast('Enter a stock name'); return; }
+  const list = Store.getWatchlist();
+  if (list.find(s => s.name === name)) { showToast('Already in watchlist'); return; }
+  list.push({ name, note: document.getElementById('modal-note').value.trim(), added: todayStr() });
+  Store.set('watch', list);
+  closeModalDirect();
+  renderWatchlist();
+  showToast('Added ' + name);
+}
+
+function removeFromWatchlist(name) {
+  if (!confirm('Remove ' + name + ' from watchlist?')) return;
+  const list = Store.getWatchlist().filter(s => s.name !== name);
+  Store.set('watch', list);
+  renderWatchlist();
+}
+
+function analyseFromWatchlist(name) {
+  document.getElementById('gem-stock').value = name;
+  navigate('gem');
+  showToast('Analysing ' + name);
+}
+
+function renderWatchlist() {
+  const list = Store.getWatchlist();
+  const container = document.getElementById('watchlist-list');
+
+  if (list.length === 0) {
+    container.innerHTML = `<div class="watchlist-empty">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+      <p>No stocks yet.<br>Add stocks you want to analyse.</p>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(s => `
+    <div class="stock-item">
+      <div class="stock-avatar">${s.name.slice(0,3)}</div>
+      <div class="stock-info" onclick="analyseFromWatchlist('${s.name}')">
+        <div class="stock-name">${s.name}</div>
+        <div class="stock-meta">${s.note || 'Added ' + formatDate(s.added)}</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="stock-action" onclick="analyseFromWatchlist('${s.name}')">Analyse →</span>
+        <span style="color:var(--text3);font-size:18px;cursor:pointer;padding:4px" onclick="removeFromWatchlist('${s.name}')">×</span>
+      </div>
+    </div>`).join('');
+
+  // Review banner
+  const analyses = Store.getAnalyses();
+  const stocksWithOldAnalysis = list.filter(s => {
+    const last = analyses.filter(a => a.stock === s.name).sort((a,b) => b.id - a.id)[0];
+    if (!last) return false;
+    const daysSince = (Date.now() - last.id) / (1000 * 60 * 60 * 24);
+    return daysSince > 90;
+  });
+
+  const banner = document.getElementById('review-banner');
+  const reviewText = document.getElementById('review-text');
+  if (stocksWithOldAnalysis.length > 0) {
+    banner.style.display = 'flex';
+    reviewText.textContent = `${stocksWithOldAnalysis.length} stock${stocksWithOldAnalysis.length > 1 ? 's' : ''} not analysed in 90+ days`;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+// ── SAVED ANALYSES ────────────────────────────────────────────────
+function renderSaved() {
+  const query = (document.getElementById('search-input')?.value || '').toLowerCase();
+  const all = Store.getAnalyses();
+  const filtered = query ? all.filter(a => a.stock.toLowerCase().includes(query)) : all;
+  const container = document.getElementById('saved-list');
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="empty-state">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-7-3.5L5 21V5z"/></svg>
+      <p>${query ? 'No results for "' + query + '"' : 'No saved analyses yet.<br>Run GEM to get started.'}</p>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(a => `
+    <div class="analysis-item" onclick="openDetail(${a.id})">
+      <div class="verdict-dot ${a.verdictKey}"></div>
+      <div class="analysis-info">
+        <div class="analysis-name">${a.stock}</div>
+        <div class="analysis-meta">${a.framework} · ${formatDate(a.date)}</div>
+      </div>
+      <div class="analysis-verdict ${a.verdictKey}">${a.verdictLabel || '—'}</div>
+    </div>`).join('');
+}
+
+function openDetail(id) {
+  const a = Store.getAnalyses().find(x => x.id === id);
+  if (!a) return;
+  currentDetailId = id;
+  document.getElementById('detail-stock-name').textContent = a.stock;
+  document.getElementById('detail-stock-date').textContent = a.framework + ' · ' + formatDate(a.date);
+
+  const vClass = a.verdictKey || 'neutral';
+  let detailBody = '';
+  if (a.framework === 'Triage') {
+    const hsRows = ['hs1','hs2'].map(id => {
+      const v = (a.hardStops||{})[id];
+      const color = v==='yes'?'var(--green)':v==='no'?'var(--red)':'var(--text3)';
+      const icon  = v==='yes'?'✓':v==='no'?'✗':'—';
+      return `<div class="detail-row"><span class="detail-key">${TRIAGE_LABELS[id]}</span><span class="detail-val" style="color:${color}">${icon}</span></div>`;
+    }).join('');
+    const scoreRows = Object.entries(a.scores||{}).map(([id,v]) => {
+      const color = v==='yes'?'var(--green)':v==='no'?'var(--red)':'var(--text3)';
+      const icon  = v==='yes'?'Yes ✓':v==='no'?'No ✗':'N/A';
+      return `<div class="detail-row"><span class="detail-key">${TRIAGE_LABELS[id]||id}</span><span class="detail-val" style="color:${color}">${icon}</span></div>`;
+    }).join('');
+    detailBody = `<p class="section-label">Hard Stops</p><div class="card" style="padding:0 16px">${hsRows}</div><p class="section-label">Scored Items · ${a.yesCount} / ${a.totalScored}</p><div class="card" style="padding:0 16px">${scoreRows}</div>`;
+  } else {
+    const rows = [
+      ['Oldest EPS', a.oldEPS ? '₹' + a.oldEPS : '—'],
+      ['Latest EPS', a.newEPS ? '₹' + a.newEPS : '—'],
+      ['Years', a.years || '—'],['Haircut', a.haircut ? a.haircut + '%' : '—'],
+      ['Auto CAGR', a.cagr != null ? fmt(a.cagr) : '—'],
+      ['Conservative Growth', a.consGrowth != null ? fmt(a.consGrowth) : '—'],
+      ['Override Used', a.override != null ? a.override + '%' : 'None'],
+      ['Effective Growth', a.effGrowth != null ? fmt(a.effGrowth) : '—'],
+      ['Current P/E', a.pe || '—'],
+      ['Market Implied Growth', a.implied != null ? fmt(a.implied) : '—'],
+      ['Growth Gap', a.gap != null ? (a.gap > 0 ? '+' : '') + fmt(a.gap) : '—'],
+    ];
+    detailBody = `<div class="card" style="padding:0 16px">${rows.map(([k,v])=>`<div class="detail-row"><span class="detail-key">${k}</span><span class="detail-val">${v}</span></div>`).join('')}</div>`;
+  }
+
+  document.getElementById('detail-content').innerHTML = `
+    <div class="verdict-card ${vClass}" style="margin:16px 16px 0">
+      <span class="verdict-label">${a.framework} Verdict</span>
+      <span class="verdict-text">${vClass==='green'?'🟢':vClass==='red'?'🔴':'🟡'} ${a.verdictLabel}</span>
+      ${a.framework==='Triage'?`<span class="verdict-detail">${a.yesCount} / ${a.totalScored} scored items passing</span>`:
+        a.gap!=null?`<span class="verdict-detail">Gap: ${(a.gap>0?'+':'')+fmt(a.gap)} · Implied: ${fmt(a.implied)} · Actual: ${fmt(a.effGrowth)}</span>`:''}
+    </div>
+    ${detailBody}
+    ${a.notes ? `<p class="section-label">Notes</p><div class="card"><p style="font-size:14px;color:var(--text2);line-height:1.6">${a.notes}</p></div>` : ''}
+  `;
+
+  previousScreen = 'saved';
+  currentScreen = 'detail';
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-detail').classList.add('active');
+  document.getElementById('bottom-nav').style.display = 'none';
+  document.getElementById('screen-detail').scrollTop = 0;
+}
+
+function deleteCurrentAnalysis() {
+  if (!confirm('Delete this analysis? This cannot be undone.')) return;
+  Store.deleteAnalysis(currentDetailId);
+  updateBadge();
+  showToast('Analysis deleted');
+  navigate('saved');
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────
+function todayStr() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function updateBadge() {
+  const count = Store.getAnalyses().length;
+  const badge = document.getElementById('saved-badge');
+  badge.textContent = count > 0 ? count : '';
+  badge.style.display = count > 0 ? 'flex' : 'none';
+}
+
+// ── INIT ─────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('gem-date').value = todayStr();
+  document.getElementById('tr-date').value  = todayStr();
+  renderWatchlist();
+  updateBadge();
+
+  // Service worker disabled
+
+
+  // Close modal on keyboard dismiss
+  document.getElementById('modal-overlay').addEventListener('click', closeModal);
+});
+</script>
+</body>
+</html>
