@@ -311,6 +311,56 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .tr-btn.active-no{background:var(--red-bg);border-color:var(--red-border);color:var(--red)}
 .tr-btn.active-na{background:var(--surface2);border-color:var(--border2);color:var(--text2)}
 
+/* ── CHECKLIST ── */
+.phase-card{margin:12px 16px 0;border-radius:var(--r);overflow:hidden;border:1px solid var(--border)}
+.phase-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;cursor:pointer;user-select:none;
+  transition:background .15s
+}
+.phase-header:active{opacity:.8}
+.phase-title{font-size:14px;font-weight:600}
+.phase-meta{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.phase-pts{font-family:'DM Mono',monospace;font-size:12px;font-weight:500}
+.phase-chevron{font-size:18px;color:var(--text3);transition:transform .2s;line-height:1}
+.phase-body{border-top:1px solid var(--border)}
+.cl-section-hdr{
+  padding:8px 16px;font-size:11px;font-weight:600;
+  letter-spacing:.5px;text-transform:uppercase;
+  background:var(--surface2);color:var(--text3);
+  border-bottom:1px solid var(--border)
+}
+.cl-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid var(--border);gap:10px;
+  transition:background .15s
+}
+.cl-item:last-child{border-bottom:none}
+.cl-item.answered-yes{background:rgba(34,197,94,.06)}
+.cl-item.answered-no{background:rgba(239,68,68,.06)}
+.cl-item.answered-na{background:rgba(107,114,128,.04)}
+.cl-item-content{flex:1;min-width:0}
+.cl-item-text{font-size:13px;font-weight:500;color:var(--text);line-height:1.4}
+.cl-item-hint{font-size:11px;color:var(--text3);margin-top:3px;line-height:1.5}
+.cl-item-wt{font-size:10px;color:var(--text3);margin-top:2px}
+.cl-btns{display:flex;gap:4px;flex-shrink:0}
+.cl-btn{
+  padding:4px 8px;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text3);font-size:11px;font-weight:600;
+  cursor:pointer;transition:all .15s;min-width:36px;text-align:center
+}
+.cl-btn.active-yes{background:var(--green-bg);border-color:var(--green-border);color:var(--green)}
+.cl-btn.active-no{background:var(--red-bg);border-color:var(--red-border);color:var(--red)}
+.cl-btn.active-na{background:var(--surface2);border-color:var(--border2);color:var(--text2)}
+.cl-rejects{padding:10px 16px;background:rgba(239,68,68,.06);border-top:1px solid var(--red-border)}
+.cl-rejects-title{font-size:11px;font-weight:600;color:var(--red);margin-bottom:6px;letter-spacing:.3px}
+.cl-reject-item{font-size:11px;color:var(--red-bg);color:#FCA5A5;margin-bottom:3px;padding-left:8px}
+.phase-reject-badge{
+  width:18px;height:18px;border-radius:50%;background:var(--red);
+  color:#fff;font-size:10px;font-weight:700;display:none;
+  align-items:center;justify-content:center
+}
+
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar{width:0;height:0}
 </style>
@@ -812,6 +862,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"/></svg>
       Triage
     </button>
+    <button class="nav-btn" onclick="navigate('checklist')" id="nav-checklist">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+      Checklist
+    </button>
     <button class="nav-btn" onclick="navigate('saved')" id="nav-saved">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-7-3.5L5 21V5z"/></svg>
       Saved
@@ -1173,6 +1227,7 @@ function navigate(screen) {
   document.getElementById('bottom-nav').style.display = screen === 'detail' ? 'none' : 'flex';
   if (screen === 'home') renderWatchlist();
   if (screen === 'saved') renderSaved();
+  if (screen === 'checklist') renderChecklistPhases();
   window.scrollTo(0, 0);
 }
 
@@ -1192,7 +1247,316 @@ function toggleHelp() {
   chevron.style.transform = open ? 'rotate(90deg)' : 'rotate(0deg)';
 }
 
-// ── GEM CALCULATOR ────────────────────────────────────────────────
+// ── FULL CHECKLIST DATA ───────────────────────────────────────────
+const CL_DATA = [
+  { phase:1, name:'Business Quality', target:50, color:'1E3A5F', light:'E8F0FF',
+    sections:[
+      { name:'1.1  Business Understanding', items:[
+        {id:'p1_1',text:'Can you explain what the company does in 2 sentences?',weight:2,hint:'If you cannot explain it simply, you do not understand it well enough.'},
+        {id:'p1_2',text:'Do you understand how it makes money (business model)?',weight:2,hint:'Revenue sources, cost structure, margin drivers.'},
+        {id:'p1_3',text:'Is the product/service essential or discretionary?',weight:1,hint:'Essential businesses are more resilient in downturns.'},
+        {id:'p1_4',text:'Does it have recognizable brand or market leadership?',weight:2,hint:'Top 1-3 in its segment counts.'},
+      ]},
+      { name:'1.2  Competitive Moat', items:[
+        {id:'p1_5',text:'Does the company have pricing power?',weight:3,hint:'Can it raise prices without losing significant volume?'},
+        {id:'p1_6',text:'Is it a market leader or top 3 in its segment?',weight:2,hint:'Market share data from annual report or industry reports.'},
+        {id:'p1_7',text:'Are operating margins stable or expanding over 5 years?',weight:3,hint:'Screener.in P&L - OPM % row. Stable or rising = moat signal.'},
+        {id:'p1_8',text:'High switching costs, network effects, or cost advantages?',weight:3,hint:'Any of these = durable competitive advantage.'},
+      ]},
+      { name:'1.3  Management Quality', items:[
+        {id:'p1_9',text:'Promoter holding >= 50% and stable or increasing?',weight:3,hint:'Screener.in - Shareholding tab.'},
+        {id:'p1_10',text:'Promoter pledge % low (ideally < 10%)?',weight:3,hint:'High pledge = risk. Shown in shareholding section.'},
+        {id:'p1_11',text:'Has management delivered on past guidance?',weight:2,hint:'Check last 2-3 annual report commentary vs actual results.'},
+        {id:'p1_12',text:'No history of fraud, governance issues, or regulatory penalties?',weight:3,hint:'SEBI orders, court cases, auditor qualifications.'},
+        {id:'p1_13',text:'Management commentary honest about challenges?',weight:1,hint:'Always-rosy commentary is a red flag.'},
+      ]},
+      { name:'1.4  Balance Sheet Health', items:[
+        {id:'p1_14',text:'Debt/Equity < 0.5 (or justified if capital-intensive)?',weight:2,hint:'Screener.in - Ratios - Debt to Equity.'},
+        {id:'p1_15',text:'Interest coverage ratio > 3x?',weight:2,hint:'EBIT / Interest expense. Higher = safer.'},
+        {id:'p1_16',text:'Current ratio > 1.5?',weight:1,hint:'Current assets / Current liabilities. > 1.5 = comfortable.'},
+        {id:'p1_17',text:'Cash position healthy - not burning reserves?',weight:1,hint:'Cash & equivalents trend over 3 years.'},
+      ]},
+      { name:'1.5  Earnings Quality', items:[
+        {id:'p1_18',text:'Revenue growth consistent over 3-5 years?',weight:2,hint:'Screener.in - P&L - Sales row.'},
+        {id:'p1_19',text:'Profit growth backed by revenue growth - not just cost-cutting?',weight:2,hint:'Both should be growing together.'},
+        {id:'p1_20',text:'Receivables/inventory not growing faster than revenue?',weight:2,hint:'Faster growth = earnings quality issue.'},
+        {id:'p1_21',text:'Tax rate normal - not suspiciously low?',weight:1,hint:'Effective tax rate ~25% is normal.'},
+      ]},
+      { name:'1.6  Return Metrics', items:[
+        {id:'p1_22',text:'ROE > 15% consistently over 5 years?',weight:2,hint:'Screener.in - Ratios - Return on Equity.'},
+        {id:'p1_23',text:'ROCE > 15%?',weight:2,hint:'More relevant for capital-intensive businesses.'},
+        {id:'p1_24',text:'ROE improving without excessive leverage?',weight:1,hint:'ROE going up just because debt went up is not a good sign.'},
+      ]},
+      { name:'1.7  Cash Flow Analysis', items:[
+        {id:'p1_25',text:'Operating Cash Flow (OCF) > Net Profit consistently?',weight:3,hint:'Screener.in - Cash Flow. OCF > PAT = real earnings.'},
+        {id:'p1_26',text:'No sudden unexplained drops in OCF despite stable profits?',weight:1,hint:'Big gap = earnings manipulation risk.'},
+        {id:'p1_27',text:'Free Cash Flow positive in most years?',weight:3,hint:'FCF = OCF - Capex. Positive = self-funding business.'},
+        {id:'p1_28',text:'If FCF negative - clearly due to expansion capex, not survival?',weight:1,hint:'FCF negative during growth = OK. FCF negative to survive = not OK.'},
+        {id:'p1_29',text:'Dividends paid from OCF - not funded by debt?',weight:1,hint:'Check if dividend > FCF. If yes, borrowing to pay dividends.'},
+      ]},
+    ],
+    rejects:['Promoter pledge > 50%','Debt/Equity > 2 (unless BFSI)','Negative FCF for 3+ consecutive years','OCF consistently well below Net Profit','Proven fraud or serious governance issue','Do not understand the business']
+  },
+  { phase:2, name:'Valuation', target:30, color:'1A4731', light:'E8F5E9',
+    sections:[
+      { name:'2.1  Rough Cheapness Check', items:[
+        {id:'p2_1',text:'GEM Check: Actual EPS growth > Market implied growth?',weight:6,hint:'Run GEM analysis first, then mark based on verdict.'},
+        {id:'p2_2',text:'PE significantly below its own 5yr average?',weight:6,hint:'Screener.in - stock page - PE chart. Current vs historical average.'},
+        {id:'p2_3',text:'PEG Ratio < 1.5?',weight:5,hint:'PEG = PE / EPS Growth Rate. < 1.5 = not paying too much for growth.'},
+        {id:'p2_4',text:'FCF Yield > 3% (FCF / Market Cap)?',weight:5,hint:'Trendlyne or Tijori Finance. > 3% = real cash being generated.'},
+        {id:'p2_5',text:'Not obviously expensive vs sector peers?',weight:5,hint:'Compare PE / EV-EBITDA with 2-3 direct competitors.'},
+      ]},
+      { name:'2.2  Sector-Specific Metric', items:[
+        {id:'p2_6',text:'Sector-specific valuation metric looks reasonable?',weight:2,hint:'Banking: P/B < 1.5. IT: PEG < 1.5. Infra: EV/EBITDA reasonable.'},
+      ]},
+    ],
+    rejects:['PE > 2x its own 5yr average with no extraordinary reason','PEG > 2.5','FCF Yield negative','All cheapness checks failing']
+  },
+  { phase:3, name:'Growth & Earnings', target:25, color:'3D2B00', light:'FFF8E1',
+    sections:[
+      { name:'3.1  Earnings Trend', items:[
+        {id:'p3_1',text:'TTM EPS trend improving?',weight:5,hint:'Screener.in - Quarters tab. Last 4 quarters EPS trend.'},
+        {id:'p3_2',text:'Revenue growth > 12-15% CAGR over 3 years?',weight:4,hint:'Screener.in - P&L - Sales row. Calculate 3yr CAGR.'},
+        {id:'p3_3',text:'PAT (profit after tax) growth consistent?',weight:4,hint:'Should track or exceed revenue growth.'},
+        {id:'p3_4',text:'Gross + operating margins stable or expanding?',weight:4,hint:'Screener.in - P&L - OPM % and GPM % rows.'},
+        {id:'p3_5',text:'OCF growing in line with or faster than revenue?',weight:4,hint:'OCF growing with revenue = real growth.'},
+      ]},
+      { name:'3.2  Forward Outlook', items:[
+        {id:'p3_6',text:'Sector in structural growth phase?',weight:3,hint:'Tailwinds - government policy, demographics, technology shifts.'},
+        {id:'p3_7',text:'Upcoming triggers: new product, capacity expansion, policy support?',weight:1,hint:'Any near-term catalyst that could unlock value.'},
+        {id:'p3_8',text:'Analyst consensus showing earnings upgrades?',weight:1,hint:'Trendlyne - Forecasts. Upgrades > downgrades = positive momentum.'},
+      ]},
+    ],
+    rejects:['Flat or declining EPS for 3+ consecutive quarters','Margin compression with no clear explanation','Sector in structural decline or being disrupted']
+  },
+  { phase:4, name:'Institutional Flow', target:20, color:'3B1F5E', light:'F3E8FF',
+    sections:[
+      { name:'4.1  Shareholding Pattern (Quarterly)', items:[
+        {id:'p4_1',text:'FII holdings increasing over last 2-3 quarters?',weight:5,hint:'Screener.in - Shareholding tab - FII trend.'},
+        {id:'p4_2',text:'DII holdings increasing or stable?',weight:3,hint:'Domestic institutions = mutual funds, insurance. Stable = OK.'},
+        {id:'p4_3',text:'Promoter holdings stable or increasing?',weight:5,hint:'Declining promoter holding is a red flag.'},
+        {id:'p4_4',text:'Retail holdings decreasing?',weight:3,hint:'Smart money replacing retail = positive. Retail going up = distribution phase.'},
+        {id:'p4_5',text:'Bulk/block deals by quality institutional buyers?',weight:2,hint:'BSE/NSE bulk deal data. Check who is buying.'},
+        {id:'p4_6',text:'Any recent insider buying?',weight:2,hint:'SAST disclosures on BSE. Management buying = strong conviction.'},
+      ]},
+    ],
+    rejects:['FII + DII both reducing simultaneously','Promoter selling aggressively','Retail % rising sharply - late-stage distribution']
+  },
+  { phase:5, name:'Market & Sector Context', target:15, color:'1A3A3A', light:'E0F7F7',
+    sections:[
+      { name:'5.1  Macro Environment', items:[
+        {id:'p5_1',text:'Nifty 50 above its 200 EMA?',weight:4,hint:'TradingView - NIFTY - weekly chart - 200 EMA indicator.'},
+        {id:'p5_2',text:'Interest rate environment not a headwind?',weight:2,hint:'Rising rates hurt NBFCs, real estate, infra. Check RBI stance.'},
+        {id:'p5_3',text:'INR stable?',weight:1,hint:'Important for IT (benefits from weak INR) and importers (hurt by weak INR).'},
+        {id:'p5_4',text:'No major macro headwind?',weight:2,hint:'Global recession signals, commodity shock, geopolitical risk.'},
+      ]},
+      { name:'5.2  Sector Health', items:[
+        {id:'p5_5',text:'Sector index above its 50 EMA and sloping up?',weight:3,hint:'TradingView - search sector index (e.g. NIFTY PHARMA) - 50 EMA.'},
+        {id:'p5_6',text:'Sector not facing regulatory headwinds?',weight:2,hint:'Pharma = FDA issues. Telecom = tariff uncertainty. Fin = RBI rules.'},
+        {id:'p5_7',text:'Stock outperforming Nifty over last 1-3 months?',weight:1,hint:'Relative strength. Compare % change vs Nifty on same period.'},
+      ]},
+    ],
+    rejects:['Nifty in confirmed downtrend - below 200 EMA','Sector index in downtrend','Significant adverse policy or regulatory action pending']
+  },
+  { phase:6, name:'Technical Chart', target:10, color:'3D1A1A', light:'FFE8E8',
+    sections:[
+      { name:'6.1  Trend Check', items:[
+        {id:'p6_1',text:'Weekly price above 200 EMA?',weight:2,hint:'TradingView - weekly chart - add 200 EMA indicator.'},
+        {id:'p6_2',text:'Daily 50 EMA sloping upward?',weight:1,hint:'Daily chart - 50 EMA - is it pointing up?'},
+        {id:'p6_3',text:'Golden Cross present (50 EMA > 200 EMA)?',weight:1,hint:'Bullish signal. 50 EMA above 200 EMA on daily chart.'},
+        {id:'p6_4',text:'No Death Cross active?',weight:2,hint:'50 EMA below 200 EMA = bearish. If present, wait.'},
+      ]},
+      { name:'6.2  Support & Resistance', items:[
+        {id:'p6_5',text:'Price near a well-defined support zone?',weight:2,hint:'Not at resistance. Buying near support = better risk/reward.'},
+        {id:'p6_6',text:'Support zone aligns with an EMA?',weight:1,hint:'EMA acting as support = stronger confirmation.'},
+        {id:'p6_7',text:'Fibonacci level (0.382/0.5/0.618) near support?',weight:0,hint:'Reference only - 0 weight. Confluence signal, not standalone.'},
+      ]},
+      { name:'6.3  Momentum', items:[
+        {id:'p6_8',text:'RSI in 40-60 range at entry?',weight:1,hint:'Not overbought (>70) or oversold (<30). Sweet spot is 45-60.'},
+        {id:'p6_9',text:'OBV flat or rising - no distribution?',weight:1,hint:'TradingView - OBV indicator. Rising OBV = buying volume.'},
+      ]},
+    ],
+    rejects:['Death Cross active','Price extended > 25% above 200 EMA','RSI > 75 at entry (overbought)','OBV declining while price rises - divergence']
+  },
+  { phase:7, name:'Entry, Sizing & Risk', target:37, color:'1A2E3D', light:'E8F4FD',
+    sections:[
+      { name:'7.1  Entry Planning', items:[
+        {id:'p7_1',text:'Entry point clearly defined?',weight:3,hint:'Support zone, post-breakout retest, or specific price level.'},
+        {id:'p7_2',text:'Not chasing - price at or near entry zone?',weight:3,hint:'If stock has run 10%+ from your planned entry, wait.'},
+        {id:'p7_3',text:'Breakout conditions met (if applicable)?',weight:2,hint:'Candle body > wick + volume >= 1.5x average.'},
+        {id:'p7_4',text:'OBV neutral/rising + Delivery % > 50%?',weight:1,hint:'Confirms breakout is institutional, not just retail speculation.'},
+      ]},
+      { name:'7.2  Stop Loss', items:[
+        {id:'p7_5',text:'SL placed below support with ATR buffer (0.5x ATR14)?',weight:3,hint:'Do not place SL exactly at support - give 0.5x ATR breathing room.'},
+        {id:'p7_6',text:'SL not placed exactly at round number?',weight:2,hint:'Everyone puts SL at round numbers. Go slightly below.'},
+        {id:'p7_7',text:'SL defined BEFORE entering?',weight:3,hint:'Non-negotiable. No SL = gambling.'},
+      ]},
+      { name:'7.3  Position Sizing', items:[
+        {id:'p7_8',text:'Risk per trade = 1-2% of total portfolio?',weight:3,hint:'Use RR Calculator in the app to verify.'},
+        {id:'p7_9',text:'Shares = (Portfolio x Risk%) / (Entry - SL) calculated?',weight:3,hint:'Never size by feel. Always calculate.'},
+        {id:'p7_10',text:'Total position value not > 10-15% of portfolio?',weight:2,hint:'Concentration risk. Even high-conviction ideas cap at 15%.'},
+        {id:'p7_11',text:'No single sector > 25-30% of portfolio?',weight:2,hint:'Sector correlation in downturns is high. Stay diversified.'},
+        {id:'p7_12',text:'Maximum 4-6 concurrent positions cap respected?',weight:2,hint:'More positions = diluted attention = worse decisions.'},
+      ]},
+      { name:'7.4  R:R Validation', items:[
+        {id:'p7_13',text:'Target = next major resistance or fair value?',weight:2,hint:'Defined target, not vague. Specific price level.'},
+        {id:'p7_14',text:'R:R >= 1:3 confirmed?',weight:3,hint:'Higher bar for long-term trades. Use RR Calculator.'},
+        {id:'p7_15',text:'If R:R < 1:3 - skipping or waiting for better entry?',weight:3,hint:'Discipline. Bad R:R means wait, not compromise.'},
+      ]},
+    ],
+    rejects:['R:R < 1:2 - hard floor, no exceptions','Position size > 15% of portfolio in one stock','No SL defined before entry']
+  },
+];
+
+// ── CHECKLIST STATE ───────────────────────────────────────────────
+const clState = {};
+CL_DATA.forEach(ph => ph.sections.forEach(s => s.items.forEach(it => { clState[it.id] = null; })));
+const phaseOpen = {1:true,2:false,3:false,4:false,5:false,6:false,7:false};
+
+const PHASE_COLORS = {
+  1:'#3B82F6',2:'#22C55E',3:'#F59E0B',4:'#A78BFA',5:'#2DD4BF',6:'#F87171',7:'#60A5FA'
+};
+
+function renderChecklistPhases() {
+  const container = document.getElementById('cl-phases');
+  if (!container) return;
+  container.innerHTML = CL_DATA.map(ph => {
+    const allItems = ph.sections.flatMap(s => s.items);
+    const yesPts = allItems.filter(it => clState[it.id]==='yes').reduce((s,it)=>s+it.weight,0);
+    const maxPts = allItems.reduce((s,it)=>s+it.weight,0);
+    const isOpen = phaseOpen[ph.phase];
+    const itemsHTML = ph.sections.map(sec => `
+      <div class="cl-section-hdr">${sec.name}</div>
+      ${sec.items.map(it => `
+        <div class="cl-item ${clState[it.id]?'answered-'+clState[it.id]:''}" id="cli-${it.id}">
+          <div class="cl-item-content">
+            <div class="cl-item-text">${it.text}</div>
+            <div class="cl-item-hint">${it.hint}</div>
+            <div class="cl-item-wt">${it.weight>0?it.weight+' pt'+(it.weight!==1?'s':''):'Reference only'}</div>
+          </div>
+          <div class="cl-btns">
+            <button class="cl-btn ${clState[it.id]==='yes'?'active-yes':''}" onclick="setCL('${it.id}','yes')">Yes</button>
+            <button class="cl-btn ${clState[it.id]==='no'?'active-no':''}" onclick="setCL('${it.id}','no')">No</button>
+            <button class="cl-btn ${clState[it.id]==='na'?'active-na':''}" onclick="setCL('${it.id}','na')">N/A</button>
+          </div>
+        </div>`).join('')}`).join('');
+    const rejectsHTML = `
+      <div class="cl-rejects">
+        <div class="cl-rejects-title">🚩 Hard Rejects — any one = skip</div>
+        ${ph.rejects.map(r=>`<div class="cl-reject-item">⚠ ${r}</div>`).join('')}
+      </div>`;
+    return `
+    <div class="phase-card">
+      <div class="phase-header" onclick="togglePhase(${ph.phase})">
+        <div class="phase-title" style="color:${PHASE_COLORS[ph.phase]}">Phase ${ph.phase} — ${ph.name}</div>
+        <div class="phase-meta">
+          <span class="phase-pts" id="phase-pts-${ph.phase}">${yesPts}/${maxPts}</span>
+          <span class="phase-chevron" id="phase-chev-${ph.phase}" style="transform:rotate(${isOpen?90:0}deg)">›</span>
+        </div>
+      </div>
+      <div class="phase-body" id="phase-body-${ph.phase}" style="display:${isOpen?'block':'none'}">
+        ${itemsHTML}${rejectsHTML}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function togglePhase(n) {
+  phaseOpen[n] = !phaseOpen[n];
+  const body = document.getElementById('phase-body-'+n);
+  const chev = document.getElementById('phase-chev-'+n);
+  if(body) body.style.display = phaseOpen[n]?'block':'none';
+  if(chev) chev.style.transform = 'rotate('+(phaseOpen[n]?90:0)+'deg)';
+}
+
+function setCL(id, val) {
+  clState[id] = val;
+  const row = document.getElementById('cli-'+id);
+  if(row){
+    row.className = 'cl-item answered-'+val;
+    row.querySelectorAll('.cl-btn').forEach((b,i)=>{
+      b.className = 'cl-btn' + (i===0&&val==='yes'?' active-yes':i===1&&val==='no'?' active-no':i===2&&val==='na'?' active-na':'');
+    });
+  }
+  updateCLScore();
+  // Update phase score
+  CL_DATA.forEach(ph=>{
+    const allItems = ph.sections.flatMap(s=>s.items);
+    if(!allItems.find(it=>it.id===id)) return;
+    const yesPts = allItems.filter(it=>clState[it.id]==='yes').reduce((s,it)=>s+it.weight,0);
+    const maxPts = allItems.reduce((s,it)=>s+it.weight,0);
+    const el = document.getElementById('phase-pts-'+ph.phase);
+    if(el) el.textContent = yesPts+'/'+maxPts;
+  });
+}
+
+function updateCLScore() {
+  const allItems = CL_DATA.flatMap(ph=>ph.sections.flatMap(s=>s.items));
+  const answered = allItems.filter(it=>clState[it.id]!==null);
+  const yesPts = allItems.filter(it=>clState[it.id]==='yes').reduce((s,it)=>s+it.weight,0);
+  const naPts  = allItems.filter(it=>clState[it.id]==='na').reduce((s,it)=>s+it.weight,0);
+  const maxPts = allItems.reduce((s,it)=>s+it.weight,0) - naPts;
+  const pct = maxPts>0?yesPts/maxPts:0;
+  const card = document.getElementById('cl-score-bar');
+  const bar  = document.getElementById('cl-progress-bar');
+  if(!card||!bar) return;
+  document.getElementById('cl-score-text').textContent = yesPts+' / '+maxPts+' pts';
+  bar.style.width = (pct*100).toFixed(0)+'%';
+  if(answered.length<10){
+    card.className='verdict-card neutral';
+    document.getElementById('cl-verdict-text').textContent='Answer items below';
+    bar.style.background='var(--accent)';
+  } else if(pct>=0.8){
+    card.className='verdict-card green';
+    document.getElementById('cl-verdict-text').textContent='🟢 High Conviction — Full Position';
+    bar.style.background='var(--green)';
+  } else if(pct>=0.6){
+    card.className='verdict-card yellow';
+    document.getElementById('cl-verdict-text').textContent='🟡 Medium Conviction — Half Position';
+    bar.style.background='var(--yellow)';
+  } else {
+    card.className='verdict-card red';
+    document.getElementById('cl-verdict-text').textContent='🔴 Low Conviction — Avoid';
+    bar.style.background='var(--red)';
+  }
+}
+
+function saveChecklist() {
+  const stock = document.getElementById('cl-stock').value.trim().toUpperCase();
+  const date  = document.getElementById('cl-date').value;
+  if(!stock){showToast('Enter a stock name first');return;}
+  const allItems = CL_DATA.flatMap(ph=>ph.sections.flatMap(s=>s.items));
+  const yesPts = allItems.filter(it=>clState[it.id]==='yes').reduce((s,it)=>s+it.weight,0);
+  const naPts  = allItems.filter(it=>clState[it.id]==='na').reduce((s,it)=>s+it.weight,0);
+  const maxPts = allItems.reduce((s,it)=>s+it.weight,0)-naPts;
+  const pct = maxPts>0?yesPts/maxPts:0;
+  let verdictKey,verdictLabel;
+  if(pct>=0.8){verdictKey='green';verdictLabel='High Conviction';}
+  else if(pct>=0.6){verdictKey='yellow';verdictLabel='Medium Conviction';}
+  else{verdictKey='red';verdictLabel='Low Conviction';}
+  Store.saveAnalysis({
+    stock,date,framework:'Checklist',
+    sector:document.getElementById('cl-sector').value,
+    bizModel:document.getElementById('cl-biz-model').value.trim(),
+    bizRisk:document.getElementById('cl-biz-risk').value.trim(),
+    scores:{...clState},yesPts,maxPts,verdictKey,verdictLabel,
+    notes:document.getElementById('cl-notes').value.trim()
+  });
+  showToast('Checklist saved');
+  updateBadge();
+  resetChecklist();
+  setTimeout(()=>navigate('saved'),600);
+}
+
+function resetChecklist() {
+  Object.keys(clState).forEach(k=>clState[k]=null);
+  Object.keys(phaseOpen).forEach(k=>phaseOpen[k]=k==='1');
+  ['cl-stock','cl-biz-model','cl-biz-risk','cl-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const dt=document.getElementById('cl-date');if(dt)dt.value=todayStr();
+  const sc=document.getElementById('cl-sector');if(sc)sc.value='';
+  renderChecklistPhases();
+  updateCLScore();
+}
 
 // ── GEM CALCULATOR ────────────────────────────────────────────────
 function calcGEM() {
@@ -1481,6 +1845,19 @@ function openDetail(id) {
       return `<div class="detail-row"><span class="detail-key">${TRIAGE_LABELS[id]||id}</span><span class="detail-val" style="color:${color}">${icon}</span></div>`;
     }).join('');
     detailBody = `<p class="section-label">Hard Stops</p><div class="card" style="padding:0 16px">${hsRows}</div><p class="section-label">Scored Items · ${a.yesCount} / ${a.totalScored}</p><div class="card" style="padding:0 16px">${scoreRows}</div>`;
+  } else if (a.framework === 'Checklist') {
+    const phaseRows = CL_DATA.map(ph => {
+      const items = ph.sections.flatMap(s => s.items);
+      const yesPts = items.filter(it => (a.scores||{})[it.id]==='yes').reduce((s,it)=>s+it.weight,0);
+      const naPts  = items.filter(it => (a.scores||{})[it.id]==='na').reduce((s,it)=>s+it.weight,0);
+      const adjMax = items.reduce((s,it)=>s+it.weight,0) - naPts;
+      return `<div class="detail-row"><span class="detail-key">Phase ${ph.phase} — ${ph.name}</span><span class="detail-val">${yesPts}/${adjMax}</span></div>`;
+    }).join('');
+    detailBody = `
+      ${a.bizModel ? `<p class="section-label">Business Model</p><div class="card"><p style="font-size:13px;color:var(--text2);line-height:1.6">${a.bizModel}</p></div>` : ''}
+      ${a.bizRisk  ? `<p class="section-label">Main Risk</p><div class="card"><p style="font-size:13px;color:var(--text2);line-height:1.6">${a.bizRisk}</p></div>` : ''}
+      <p class="section-label">Phase Scores · ${a.yesPts} / ${a.maxPts} total</p>
+      <div class="card" style="padding:0 16px">${phaseRows}</div>`;
   } else {
     const rows = [
       ['Oldest EPS', a.oldEPS ? '₹' + a.oldEPS : '—'],
@@ -1502,6 +1879,7 @@ function openDetail(id) {
       <span class="verdict-label">${a.framework} Verdict</span>
       <span class="verdict-text">${vClass==='green'?'🟢':vClass==='red'?'🔴':'🟡'} ${a.verdictLabel}</span>
       ${a.framework==='Triage'?`<span class="verdict-detail">${a.yesCount} / ${a.totalScored} scored items passing</span>`:
+        a.framework==='Checklist'?`<span class="verdict-detail">${a.yesPts} / ${a.maxPts} pts · ${((a.yesPts/a.maxPts)*100).toFixed(0)}%</span>`:
         a.gap!=null?`<span class="verdict-detail">Gap: ${(a.gap>0?'+':'')+fmt(a.gap)} · Implied: ${fmt(a.implied)} · Actual: ${fmt(a.effGrowth)}</span>`:''}
     </div>
     ${detailBody}
@@ -1553,6 +1931,7 @@ function updateBadge() {
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('gem-date').value = todayStr();
   document.getElementById('tr-date').value  = todayStr();
+  renderChecklistPhases();
   renderWatchlist();
   updateBadge();
 
