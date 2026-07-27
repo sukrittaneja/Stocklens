@@ -851,7 +851,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       </div>
       <div class="field" style="margin-top:12px;margin-bottom:0">
         <label>Sector</label>
-        <select id="cl-sector">
+        <select id="cl-sector" onchange="renderChecklistPhases()">
           <option value="">Select sector...</option>
           <option>Banking / NBFC</option><option>IT / Software</option>
           <option>Pharma</option><option>Healthcare / Hospitals</option>
@@ -1404,6 +1404,11 @@ const CL_DATA = [
       { name:'2.2  Sector-Specific Metric', items:[
         {id:'p2_6',text:'Sector-specific valuation metric looks reasonable?',weight:3,hint:'Banking: P/B < 1.5 + NIM trend. IT: PEG < 1.5. Infra: EV/EBITDA + order book. Pharma: PE vs 5yr avg + pipeline. Metals: EV/EBITDA through cycle.'},
       ]},
+      { name:'2.3  Growth Quality — Capital Efficiency', items:[
+        {id:'p2_7',text:'Is growth capital-light? Return on Capital Employed (ROCE) consistently above 20%?',weight:4,hint:'ROCE = Profit earned ÷ Total capital used to earn it. Two companies growing Earnings Per Share (EPS) at 20%. ROCE 25% = reinvests 60% of profits to fund growth, rest is free cash. ROCE 10% = needs to reinvest 150% of profits, forcing constant debt or equity dilution. Same EPS growth, completely different business quality. Screener.in → Ratios → ROCE row.'},
+        {id:'p2_8',text:'ROCE stable or improving as EPS (Earnings Per Share) grows?',weight:3,hint:'EPS growing + ROCE growing = genuine compounding. Business makes more money AND gets better at deploying capital. EPS growing + ROCE falling = warning sign — each new expansion earns less than the last. EPS growing + ROCE below 12% = dangerous. Profit on paper, wealth destruction in reality. Screener.in → 10-year data table → check both rows side by side.'},
+        {id:'p2_9',text:'ROCE meaningfully above cost of capital (above 15%)?',weight:3,hint:'Cost of capital is what the money costs the company — roughly 12% in India (blended cost of loan interest and shareholder return expectation). If ROCE > 15% = every rupee reinvested creates real wealth. If ROCE < 12% = growth destroys economic value even if EPS rises. Think of it like this: you open a second clinic earning ₹8 lakh/year but your loan costs ₹10 lakh/year. The clinic made money. You lost ₹2 lakh. That is ROCE below cost of capital. Screener.in → Ratios → ROCE. Aim for consistent 15%+.'},
+      ]},
     ],
   },
   { phase:3, name:'Growth & Earnings', target:26, color:'3D2B00',
@@ -1502,6 +1507,107 @@ function getSectorHint(item) {
   return '';
 }
 
+
+// ── SECTOR NOTES ─────────────────────────────────────────────────
+const SECTOR_NOTES = {
+  'Banking / NBFC': {
+    banner: '🏦 Banking / NBFC selected',
+    less_relevant: 'Debt/Equity (D/E), Free Cash Flow (FCF) Yield, Operating Cash Flow (OCF) vs Net Profit, and Working Capital items are not meaningful for banks — mark these N/A.',
+    focus: 'Focus instead on: Net Interest Margin (NIM — spread between lending and borrowing rates), Non-Performing Assets (NPA — bad loans as % of total loans), CASA ratio (Current Account Savings Account — cheap deposit mix), Provision Coverage Ratio (PCR — how much of bad loans are provided for), Return on Assets (ROA — profit as % of total assets). For valuation use Price-to-Book (P/B) ratio, not PE.',
+    color: '#1E3A5F'
+  },
+  'IT / Software': {
+    banner: '💻 IT / Software selected',
+    less_relevant: 'D/E and Working Capital items are less relevant — IT companies are naturally low-debt and asset-light.',
+    focus: 'Focus on: Revenue concentration (top 5 clients should not exceed 30% — single client risk), Employee attrition rate, Deal wins and Total Contract Value (TCV), Revenue in USD terms (weak INR benefits IT exporters), EBITDA margins (Earnings Before Interest Tax Depreciation Amortisation), Utilisation rates. For valuation PE and PEG are relevant but also check EV/EBITDA (Enterprise Value to EBITDA).',
+    color: '#1A4731'
+  },
+  'Pharma': {
+    banner: '💊 Pharma selected',
+    less_relevant: 'Standard FCF checks need context — R&D spend can suppress FCF temporarily.',
+    focus: 'Focus on: US FDA (Food and Drug Administration) facility status, ANDA (Abbreviated New Drug Application) pipeline, R&D spend as % of revenue (healthy at 5-8%), Domestic vs export revenue mix, Patent cliff exposure, USFDA inspection history. PE vs 5-year average is the primary valuation metric. High R&D spend compressing margins is not always a red flag.',
+    color: '#3D2B00'
+  },
+  'Healthcare / Hospitals': {
+    banner: '🏥 Healthcare / Hospitals selected',
+    less_relevant: 'Standard FCF checks need context — hospital capex cycles are long.',
+    focus: 'Focus on: Occupancy rates (70%+ is healthy), Average Revenue Per Occupied Bed (ARPOB), Payor mix (insurance vs cash vs government), Bed capacity utilisation, EBITDA margins (Earnings Before Interest Tax Depreciation Amortisation — 20%+ for quality hospitals). EV/EBITDA is the primary valuation metric (10-15x is reasonable). New bed additions take 3-5 years to turn profitable.',
+    color: '#1A3A3A'
+  },
+  'FMCG / Consumer': {
+    banner: '🛒 FMCG / Consumer selected',
+    less_relevant: 'D/E is rarely a concern — most FMCG companies are net cash.',
+    focus: 'Focus on: Volume growth vs value growth (volume growth is more sustainable than price-led growth), Market share trends, Distribution reach (number of outlets), Gross margins (premium FMCG should have 50%+ gross margins), Brand investment as % of revenue. PE and PEG are primary valuation metrics. Watch out for volume stagnation hidden by price hikes.',
+    color: '#3B1F5E'
+  },
+  'Auto & Ancillary': {
+    banner: '🚗 Auto & Ancillary selected',
+    less_relevant: 'FCF can be negative during new model launches — not automatically a red flag.',
+    focus: 'Focus on: Volume growth by segment (2W, PV, CV), Market share, Inventory at dealer level, New model pipeline, EV (Electric Vehicle) transition readiness, Raw material cost as % of revenue (steel, aluminium exposure). EV/EBITDA (Enterprise Value to EBITDA) is primary valuation metric. Automotive is cyclical — check where we are in the cycle.',
+    color: '#1E3A5F'
+  },
+  'Metals / Commodities': {
+    banner: '⚙️ Metals / Commodities selected',
+    less_relevant: 'PE ratio and EPS CAGR are misleading at commodity cycle peaks — earnings can collapse 60-80% in a downturn.',
+    focus: 'Focus on: EV/EBITDA (Enterprise Value to EBITDA) through the cycle average — not just current year, Debt levels at cycle peak (low debt = survives downturns), Cost position on the global cost curve (lower cost = more resilient), Capacity utilisation, Commodity price outlook. Never buy metals at peak earnings on low PE — that PE will not hold.',
+    color: '#3D2B00'
+  },
+  'Real Estate': {
+    banner: '🏢 Real Estate selected',
+    less_relevant: 'Standard OCF and FCF metrics are less meaningful — revenue is recognised on project completion, not cash collection.',
+    focus: 'Focus on: Pre-sales momentum (bookings value), Collections efficiency, Net Debt to Equity, Land bank quality and location, Execution track record (past project deliveries), Unsold inventory levels. Price-to-Book (P/B) and EV/EBITDA are primary metrics. Accounting in real estate is complex — cash flows matter more than reported profits.',
+    color: '#1A2E3D'
+  },
+  'Infra / Capital Goods': {
+    banner: '🏗️ Infra / Capital Goods selected',
+    less_relevant: 'Negative FCF during heavy order execution is normal — do not penalise this automatically.',
+    focus: 'Focus on: Order book as multiple of annual revenue (3x+ is healthy), Order inflow momentum, Working capital cycle (high WC in infra is normal but should be stable), EBITDA margins (Earnings Before Interest Tax Depreciation Amortisation), Execution track record, Government payment cycles. EV/EBITDA and EV/Order Book are primary metrics. D/E up to 1.5 is acceptable for project-based businesses.',
+    color: '#1A3A3A'
+  },
+  'Energy / Oil & Gas': {
+    banner: '⚡ Energy / Oil & Gas selected',
+    less_relevant: 'Standard EPS CAGR is distorted by commodity price cycles.',
+    focus: 'Focus on: FCF Yield (Free Cash Flow as % of Market Cap — 5%+ is attractive for mature energy companies), Dividend yield sustainability, Reserve replacement ratio (for E&P companies), Refining margins (GRM — Gross Refining Margin for refiners), Government pricing policy risk. EV/EBITDA is primary valuation metric.',
+    color: '#3D2B00'
+  },
+  'Telecom': {
+    banner: '📱 Telecom selected',
+    less_relevant: 'FCF and OCF checks are critical but need context — telecom is extremely capex-heavy by nature.',
+    focus: 'Focus on: ARPU (Average Revenue Per User — trend should be rising), Subscriber market share, 5G capex cycle and debt implications, EBITDA margins (Earnings Before Interest Tax Depreciation Amortisation), Debt levels (telecom is highly leveraged — check interest coverage carefully). EV/EBITDA is primary metric. High D/E is structural in telecom but debt trajectory matters.',
+    color: '#3B1F5E'
+  },
+  'Chemicals / Specialty Chemicals': {
+    banner: '🧪 Chemicals / Specialty Chemicals selected',
+    less_relevant: 'No major adjustments needed — this sector works well with the standard checklist.',
+    focus: 'Focus on: Capacity utilisation (75%+ is healthy), China+1 strategy beneficiary status, Customer concentration, R&D capability for specialty products, Gross margins (specialty chemicals should have 35%+ gross margins vs 15-20% for commodities), Export mix. PE vs 5-year average and EV/EBITDA are both relevant. Differentiate between commodity chemicals (avoid) and specialty chemicals (prefer).',
+    color: '#1A4731'
+  },
+  'Textiles / Apparel': {
+    banner: '👔 Textiles / Apparel selected',
+    less_relevant: 'FCF can be negative during capacity expansion — check if it is growth-driven.',
+    focus: 'Focus on: Export order book, PLI (Production Linked Incentive) scheme benefit, Cotton/yarn price exposure, Customer concentration (major retail brands), Brand vs commodity positioning. EV/EBITDA through cycle is primary metric. Textiles is highly cyclical — raw material prices and global demand both swing earnings significantly.',
+    color: '#3D1A1A'
+  },
+  'Media & Entertainment': {
+    banner: '🎬 Media & Entertainment selected',
+    less_relevant: 'Traditional FCF metrics are less relevant for subscription and content businesses.',
+    focus: 'Focus on: Subscriber count and growth rate, Daily Active Users (DAU) for digital platforms, Average Revenue Per User (ARPU), Content investment ROI (Return on Investment), Advertising revenue trend. Price/Sales (MC/Sales) ratio is primary metric for loss-making platforms. For profitable broadcasters, use EV/EBITDA.',
+    color: '#1A2E3D'
+  },
+  'Retail': {
+    banner: '🛍️ Retail selected',
+    less_relevant: 'Reported profits can be distorted by store expansion costs — look through to same-store metrics.',
+    focus: 'Focus on: Same-Store Sales Growth (SSSG — growth in stores open for 12+ months, strips out expansion effect), Gross margins, Inventory turnover, Store expansion payback period, Online vs offline mix. MC/Sales (Market Cap to Sales) and EV/EBITDA are primary metrics. New store openings inflate revenue but suppress margins initially — always check SSSG.',
+    color: '#3B1F5E'
+  },
+  'Early-stage / Turnaround': {
+    banner: '🚀 Early-stage / Turnaround selected',
+    less_relevant: 'PE, ROCE, ROE, and FCF items are mostly irrelevant — this company may be loss-making or just turning profitable.',
+    focus: 'Focus on: Revenue growth trajectory (is the top line growing fast?), Gross margins (is the core business model viable?), Cash runway (how many months of cash at current burn rate?), Path to profitability (is there a clear timeline?), Unit economics (is each unit/customer profitable?). MC/Sales (Market Cap to Sales) is primary metric. This is high-risk — position sizing must be smaller than usual.',
+    color: '#3D2B00'
+  },
+};
+
 function renderChecklistPhases() {
   const container = document.getElementById('cl-phases');
   if (!container) return;
@@ -1518,7 +1624,17 @@ function renderChecklistPhases() {
     return;
   }
 
-  container.innerHTML = CL_DATA.map(ph => {
+  // Sector banner
+  const selectedSector = getSelectedSector();
+  const sectorNote = selectedSector ? SECTOR_NOTES[selectedSector] : null;
+  const bannerHTML = sectorNote ? `
+    <div style="margin:12px 16px 0;padding:14px 16px;border-radius:var(--r);border:1px solid #${sectorNote.color.replace('#','')}33;background:#${sectorNote.color.replace('#','')}11">
+      <div style="font-size:13px;font-weight:600;color:${sectorNote.color};margin-bottom:6px">${sectorNote.banner}</div>
+      <div style="font-size:12px;color:var(--text3);line-height:1.7;margin-bottom:8px"><span style="color:#FCA5A5;font-weight:500">Less relevant: </span>${sectorNote.less_relevant}</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.7"><span style="color:#86EFAC;font-weight:500">Focus on: </span>${sectorNote.focus}</div>
+    </div>` : '';
+
+  container.innerHTML = bannerHTML + CL_DATA.map(ph => {
     const hardStops = CL_HARD_STOPS.filter(hs => hs.phase === ph.phase);
     const allItems  = ph.sections.flatMap(s => s.items);
     const yesPts    = allItems.filter(it => clState[it.id]==='yes').reduce((s,it)=>s+it.weight,0);
