@@ -832,6 +832,75 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   </div><!-- end screen-triage -->
 
 
+  <!-- ══ SCREEN: FULL CHECKLIST ══ -->
+  <div id="screen-checklist" class="screen">
+    <div class="screen-header">
+      <h1>Full Checklist</h1>
+      <p>Phases 1–7 · 65 items · Complete analysis</p>
+    </div>
+    <div class="card">
+      <div class="field-row">
+        <div class="field" style="margin:0">
+          <label>Stock name</label>
+          <input type="text" id="cl-stock" placeholder="e.g. TCS" autocapitalize="characters" autocomplete="off">
+        </div>
+        <div class="field" style="margin:0">
+          <label>Date</label>
+          <input type="date" id="cl-date">
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px;margin-bottom:0">
+        <label>Sector</label>
+        <select id="cl-sector">
+          <option value="">Select sector...</option>
+          <option>Banking / NBFC</option><option>IT / Software</option>
+          <option>Pharma</option><option>Healthcare / Hospitals</option>
+          <option>FMCG / Consumer</option><option>Auto &amp; Ancillary</option>
+          <option>Metals / Commodities</option><option>Real Estate</option>
+          <option>Infra / Capital Goods</option><option>Energy / Oil &amp; Gas</option>
+          <option>Telecom</option><option>Chemicals / Specialty Chemicals</option>
+          <option>Textiles / Apparel</option><option>Media &amp; Entertainment</option>
+          <option>Retail</option><option>Early-stage / Turnaround</option>
+        </select>
+      </div>
+    </div>
+    <p class="section-label">Business Understanding
+      <span style="font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;font-size:11px;display:block;margin-top:2px">Write before answering checkboxes — forces clarity of thinking</span>
+    </p>
+    <div class="card">
+      <div class="field">
+        <label>How does this business make money?</label>
+        <textarea id="cl-biz-model" placeholder="Revenue sources, business model, margin drivers... (2-3 sentences)"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>What could kill it?</label>
+        <textarea id="cl-biz-risk" placeholder="Main business risk, competitive threat... (1-2 sentences)"></textarea>
+      </div>
+    </div>
+    <div id="cl-score-bar" class="verdict-card neutral" style="margin:12px 16px 0;padding:14px 16px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div><div class="verdict-label">Overall Score</div><div class="verdict-text" id="cl-score-text" style="font-size:16px">0 / 0 pts</div></div>
+        <div style="text-align:right"><div class="verdict-label">Verdict</div><div id="cl-verdict-text" style="font-size:14px;font-weight:600;color:var(--text2)">Answer items below</div></div>
+      </div>
+      <div style="margin-top:10px;background:var(--surface2);border-radius:4px;height:6px;overflow:hidden">
+        <div id="cl-progress-bar" style="height:100%;width:0%;background:var(--accent);border-radius:4px;transition:width .3s"></div>
+      </div>
+    </div>
+    <div id="cl-phases"></div>
+    <p class="section-label">Notes</p>
+    <div class="card">
+      <div class="field" style="margin:0">
+        <textarea id="cl-notes" placeholder="Investment thesis, key risks, why you like or don't like this stock..."></textarea>
+      </div>
+    </div>
+    <div style="margin:16px 16px 0">
+      <button class="btn btn-primary" onclick="saveChecklist()">Save Analysis</button>
+    </div>
+    <div style="margin:10px 16px 0">
+      <button class="btn btn-ghost" onclick="resetChecklist()">Clear / New Analysis</button>
+    </div>
+  </div>
+
   <div id="screen-detail" class="screen">
     <div class="detail-header">
       <div class="back-btn" onclick="goBack()">
@@ -1221,7 +1290,8 @@ function navigate(screen) {
   currentScreen = screen;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('screen-' + screen).classList.add('active');
+  const screenEl = document.getElementById('screen-' + screen);
+  if (screenEl) screenEl.classList.add('active');
   const navBtn = document.getElementById('nav-' + screen);
   if (navBtn) navBtn.classList.add('active');
   document.getElementById('bottom-nav').style.display = screen === 'detail' ? 'none' : 'flex';
