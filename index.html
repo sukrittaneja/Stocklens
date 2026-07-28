@@ -1496,7 +1496,12 @@ function navigate(screen) {
   if (navBtn) navBtn.classList.add('active');
   document.getElementById('bottom-nav').style.display = screen === 'detail' ? 'none' : 'flex';
   if (screen === 'home') renderWatchlist();
-  if (screen === 'saved') renderSaved();
+  if (screen === 'saved') {
+    Store.pullFromCloud().then(() => {
+      renderSaved();
+      updateBadge();
+    });
+  }
   if (screen === 'checklist') renderChecklistPhases();
   window.scrollTo(0, 0);
 }
@@ -2485,6 +2490,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (!session && currentUser) {
       currentUser = null;
       showLoginScreen();
+    }
+  });
+
+  // Real-time sync — changes from other devices
+  supa.channel('analyses-sync')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'analyses' }, async () => {
+      if (!currentUser) return;
+      await Store.pullFromCloud();
+      renderSaved();
+      updateBadge();
+    })
+    .subscribe();
+
+  // Also pull when tab becomes visible (switching back from another app)
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && currentUser) {
+      await Store.pullFromCloud();
+      renderSaved();
+      renderWatchlist();
+      updateBadge();
     }
   });
 
