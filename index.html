@@ -1214,18 +1214,29 @@ const Store = {
     const entry = { ...a, id: Date.now() };
     list.unshift(entry);
     this._set('analyses', list);
-    if (currentUser && supa) this._pushAnalysis(entry).catch(()=>{});
+    if (currentUser && supa) this._pushAnalysis(entry).catch(e => console.error('Sync error:', e));
   },
   deleteAnalysis(id) {
     this._set('analyses', this.getAnalyses().filter(a => a.id !== id));
     if (currentUser && supa) supa.from('analyses').delete().eq('local_id', id).eq('user_id', currentUser.id).then(()=>{});
   },
   async _pushAnalysis(a) {
-    await supa.from('analyses').upsert({
-      user_id: currentUser.id, local_id: a.id, stock: a.stock, date: a.date,
-      framework: a.framework, verdict_key: a.verdictKey, verdict_label: a.verdictLabel,
-      data: a, notes: a.notes || ''
-    }, { onConflict: 'user_id,local_id' });
+    // Check if exists first, then insert or update
+    const { data: existing } = await supa.from('analyses')
+      .select('id').eq('user_id', currentUser.id).eq('local_id', a.id).single();
+    if (existing) {
+      await supa.from('analyses').update({
+        stock: a.stock, date: a.date, framework: a.framework,
+        verdict_key: a.verdictKey, verdict_label: a.verdictLabel,
+        data: a, notes: a.notes || ''
+      }).eq('id', existing.id);
+    } else {
+      await supa.from('analyses').insert({
+        user_id: currentUser.id, local_id: a.id, stock: a.stock, date: a.date,
+        framework: a.framework, verdict_key: a.verdictKey, verdict_label: a.verdictLabel,
+        data: a, notes: a.notes || ''
+      });
+    }
   },
   async _syncWatchlist(list) {
     await supa.from('watchlist_items').delete().eq('user_id', currentUser.id);
