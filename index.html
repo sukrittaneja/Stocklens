@@ -9,6 +9,7 @@
 <title>StockLens</title>
 <link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -2452,10 +2453,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Initialize Supabase client (CDN guaranteed loaded by DOMContentLoaded)
   try {
+    if (typeof supabase === 'undefined') throw new Error('Supabase library not loaded');
     supa = supabase.createClient(SUPA_URL, SUPA_KEY);
   } catch(e) {
     showLoginScreen();
-    showAuthError('Failed to connect to server. Please refresh the page.');
+    showAuthError('Failed to load — please check your connection and refresh.');
     return;
   }
   const { data: { session } } = await supa.auth.getSession();
