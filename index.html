@@ -1096,26 +1096,46 @@ const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 let currentUser = null;
 
 // ── AUTH ──────────────────────────────────────────────────────────
-async function signIn() {
-  const email = document.getElementById('auth-email').value.trim();
-  const pass  = document.getElementById('auth-password').value;
-  if (!email || !pass) { showAuthError('Enter email and password'); return; }
-  setAuthLoading(true);
-  const { error } = await supa.auth.signInWithPassword({ email, password: pass });
-  setAuthLoading(false);
-  if (error) showAuthError(error.message);
-}
-
 async function signUp() {
   const email = document.getElementById('auth-email').value.trim();
   const pass  = document.getElementById('auth-password').value;
   if (!email || !pass) { showAuthError('Enter email and password'); return; }
   if (pass.length < 6) { showAuthError('Password must be at least 6 characters'); return; }
   setAuthLoading(true);
-  const { error } = await supa.auth.signUp({ email, password: pass });
-  setAuthLoading(false);
-  if (error) showAuthError(error.message);
-  else showAuthError('✓ Check your email to confirm your account', true);
+  try {
+    const { data, error } = await supa.auth.signUp({ email, password: pass });
+    if (error) {
+      showAuthError(error.message);
+    } else if (data?.user?.identities?.length === 0) {
+      showAuthError('An account with this email already exists. Try signing in instead.');
+    } else if (data?.session) {
+      // Email confirmation disabled — logged in immediately
+      currentUser = data.session.user;
+      await Store.pullFromCloud();
+      showApp();
+    } else {
+      showAuthError('✓ Check your email to confirm your account then sign in', true);
+    }
+  } catch (e) {
+    showAuthError('Something went wrong. Check your connection and try again.');
+  } finally {
+    setAuthLoading(false);
+  }
+}
+
+async function signIn() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-password').value;
+  if (!email || !pass) { showAuthError('Enter email and password'); return; }
+  setAuthLoading(true);
+  try {
+    const { error } = await supa.auth.signInWithPassword({ email, password: pass });
+    if (error) showAuthError(error.message);
+  } catch (e) {
+    showAuthError('Something went wrong. Check your connection and try again.');
+  } finally {
+    setAuthLoading(false);
+  }
 }
 
 async function signOut() {
@@ -2452,4 +2472,3 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 </body>
 </html>
-
