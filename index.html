@@ -394,11 +394,41 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 <div id="app">
 
+  <!-- ══ SCREEN: LOGIN ══ -->
+  <div id="screen-login" class="screen active" style="display:flex;flex-direction:column;justify-content:center;padding:32px 24px;min-height:100dvh">
+    <div style="text-align:center;margin-bottom:40px">
+      <div style="font-size:48px;margin-bottom:12px">💎</div>
+      <div style="font-size:24px;font-weight:700;color:var(--text)">StockLens</div>
+      <div style="font-size:13px;color:var(--text3);margin-top:4px">Your personal investment framework</div>
+    </div>
+    <div class="card">
+      <div id="login-error" style="display:none;padding:10px 12px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--r-sm);font-size:13px;color:var(--red);margin-bottom:14px"></div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="auth-email" placeholder="you@example.com" autocomplete="email" style="font-size:16px">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Password</label>
+        <input type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password" style="font-size:16px">
+      </div>
+    </div>
+    <div style="margin:12px 0 0">
+      <button class="btn btn-primary" onclick="signIn()" id="signin-btn">Sign In</button>
+    </div>
+    <div style="margin:10px 0 0">
+      <button class="btn btn-ghost" onclick="signUp()" id="signup-btn">Create Account</button>
+    </div>
+    <p style="text-align:center;font-size:12px;color:var(--text3);margin-top:20px;line-height:1.6">Your analyses sync across all your devices.<br>Data is private and only visible to you.</p>
+  </div>
+
   <!-- ══ SCREEN: HOME / WATCHLIST ══ -->
   <div id="screen-home" class="screen active">
-    <div class="screen-header">
-      <h1>💎 StockLens</h1>
-      <p>Your personal GEM analyser</p>
+    <div class="screen-header" style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <h1>💎 StockLens</h1>
+        <p>Your personal GEM analyser</p>
+      </div>
+      <button onclick="signOut()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text3);font-size:12px;padding:6px 12px;border-radius:var(--r-sm);cursor:pointer;font-family:inherit">Sign out</button>
     </div>
     <div id="review-banner" class="review-banner" style="display:none">
       <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
@@ -1055,19 +1085,134 @@ function getImpliedGrowth(pe) {
   return res;
 }
 
-// ── STORAGE ──────────────────────────────────────────────────────
+// ── SUPABASE ──────────────────────────────────────────────────────
+const SUPA_URL = 'https://hocrncptpleujkqqobgm.supabase.co';
+const SUPA_KEY = 'sb_publishable_Spd7XOSjocuRk_wC5qUNag_4anUoMcg';
+const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+let currentUser = null;
+
+// ── AUTH ──────────────────────────────────────────────────────────
+async function signIn() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-password').value;
+  if (!email || !pass) { showAuthError('Enter email and password'); return; }
+  setAuthLoading(true);
+  const { error } = await supa.auth.signInWithPassword({ email, password: pass });
+  setAuthLoading(false);
+  if (error) showAuthError(error.message);
+}
+
+async function signUp() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-password').value;
+  if (!email || !pass) { showAuthError('Enter email and password'); return; }
+  if (pass.length < 6) { showAuthError('Password must be at least 6 characters'); return; }
+  setAuthLoading(true);
+  const { error } = await supa.auth.signUp({ email, password: pass });
+  setAuthLoading(false);
+  if (error) showAuthError(error.message);
+  else showAuthError('✓ Check your email to confirm your account', true);
+}
+
+async function signOut() {
+  await supa.auth.signOut();
+  currentUser = null;
+  showLoginScreen();
+}
+
+function showAuthError(msg, isSuccess = false) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.background = isSuccess ? 'var(--green-bg)' : 'var(--red-bg)';
+  el.style.borderColor = isSuccess ? 'var(--green-border)' : 'var(--red-border)';
+  el.style.color = isSuccess ? 'var(--green)' : 'var(--red)';
+}
+
+function setAuthLoading(loading) {
+  document.getElementById('signin-btn').textContent = loading ? 'Signing in...' : 'Sign In';
+  document.getElementById('signup-btn').textContent = loading ? '...' : 'Create Account';
+}
+
+function showLoginScreen() {
+  document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active'); s.style.display=''; });
+  const loginEl = document.getElementById('screen-login');
+  if (loginEl) { loginEl.classList.add('active'); loginEl.style.display='flex'; }
+  document.getElementById('bottom-nav').style.display = 'none';
+}
+
+function showApp() {
+  const loginEl = document.getElementById('screen-login');
+  if (loginEl) { loginEl.classList.remove('active'); loginEl.style.display='none'; }
+  document.getElementById('bottom-nav').style.display = 'flex';
+  navigate('home');
+}
+
+// ── STORAGE (hybrid: localStorage cache + Supabase cloud) ─────────
 const Store = {
-  get(k) { try { return JSON.parse(localStorage.getItem('sl_' + k) || 'null'); } catch { return null; } },
-  set(k, v) { localStorage.setItem('sl_' + k, JSON.stringify(v)); },
-  getWatchlist() { return this.get('watch') || []; },
-  getAnalyses() { return this.get('analyses') || []; },
+  // LOCAL CACHE helpers
+  _get(k)    { try { return JSON.parse(localStorage.getItem('sl_'+k)||'null'); } catch { return null; } },
+  _set(k, v) { localStorage.setItem('sl_'+k, JSON.stringify(v)); },
+
+  getWatchlist()  { return this._get('watch')    || []; },
+  getAnalyses()   { return this._get('analyses') || []; },
+
+  set(k, v) {
+    this._set(k.replace(/^sl_/,''), v);
+    // Sync watchlist to Supabase
+    if (k === 'watch' && currentUser) this._syncWatchlist(v).catch(()=>{});
+  },
+
   saveAnalysis(a) {
     const list = this.getAnalyses();
-    list.unshift({ ...a, id: Date.now() });
-    this.set('analyses', list);
+    const entry = { ...a, id: Date.now() };
+    list.unshift(entry);
+    this._set('analyses', list);
+    if (currentUser) this._pushAnalysis(entry).catch(()=>{});
   },
+
   deleteAnalysis(id) {
-    this.set('analyses', this.getAnalyses().filter(a => a.id !== id));
+    this._set('analyses', this.getAnalyses().filter(a => a.id !== id));
+    if (currentUser) supa.from('analyses').delete().eq('local_id', id).eq('user_id', currentUser.id).then(()=>{});
+  },
+
+  // ── Supabase sync ──────────────────────────────────────────────
+  async _pushAnalysis(a) {
+    await supa.from('analyses').upsert({
+      user_id:       currentUser.id,
+      local_id:      a.id,
+      stock:         a.stock,
+      date:          a.date,
+      framework:     a.framework,
+      verdict_key:   a.verdictKey,
+      verdict_label: a.verdictLabel,
+      data:          a,
+      notes:         a.notes || ''
+    }, { onConflict: 'user_id,local_id' });
+  },
+
+  async _syncWatchlist(list) {
+    await supa.from('watchlist_items').delete().eq('user_id', currentUser.id);
+    if (list.length > 0) {
+      await supa.from('watchlist_items').insert(
+        list.map(w => ({ user_id: currentUser.id, name: w.name, note: w.note||'', added_at: w.added||todayStr() }))
+      );
+    }
+  },
+
+  async pullFromCloud() {
+    if (!currentUser) return;
+    // Pull analyses
+    const { data: analyses } = await supa.from('analyses').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+    if (analyses && analyses.length > 0) {
+      const mapped = analyses.map(r => ({ ...(r.data||{}), id: r.local_id||r.id, stock: r.stock, date: r.date, framework: r.framework, verdictKey: r.verdict_key, verdictLabel: r.verdict_label, notes: r.notes }));
+      this._set('analyses', mapped);
+    }
+    // Pull watchlist
+    const { data: watchlist } = await supa.from('watchlist_items').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: true });
+    if (watchlist) {
+      this._set('watch', watchlist.map(w => ({ name: w.name, note: w.note, added: w.added_at })));
+    }
   }
 };
 
@@ -2258,15 +2403,44 @@ function updateBadge() {
 }
 
 // ── INIT ─────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('gem-date').value = todayStr();
   document.getElementById('tr-date').value  = todayStr();
+
+  // Check existing Supabase session
+  const { data: { session } } = await supa.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await Store.pullFromCloud();
+    showApp();
+  } else {
+    showLoginScreen();
+  }
+
+  // Listen for auth changes
+  supa.auth.onAuthStateChange(async (event, session) => {
+    if (session && !currentUser) {
+      currentUser = session.user;
+      await Store.pullFromCloud();
+      showApp();
+    } else if (!session && currentUser) {
+      currentUser = null;
+      showLoginScreen();
+    }
+  });
+
+  // Real-time sync — when analyses change on another device
+  supa.channel('analyses-sync')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'analyses' }, async () => {
+      if (!currentUser) return;
+      await Store.pullFromCloud();
+      renderSaved();
+      renderWatchlist();
+      updateBadge();
+    })
+    .subscribe();
+
   renderChecklistPhases();
-  renderWatchlist();
-  updateBadge();
-
-  // Service worker disabled
-
 
   // Close modal on keyboard dismiss
   document.getElementById('modal-overlay').addEventListener('click', closeModal);
