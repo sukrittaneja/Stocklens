@@ -1122,7 +1122,7 @@ async function signUp() {
       showAuthError('✓ Check your email to confirm your account, then sign in', true);
     }
   } catch (e) {
-    showAuthError('Network error — check your connection and try again.');
+    showAuthError('Error: ' + (e.message || e.toString()));
   } finally {
     setAuthLoading(false);
   }
@@ -1134,7 +1134,6 @@ async function signIn() {
   if (!email || !pass) { showAuthError('Enter email and password'); return; }
   setAuthLoading(true);
   try {
-    // Direct REST call — avoids Bearer header issue with new Supabase key format
     const res = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
@@ -1152,7 +1151,7 @@ async function signIn() {
       showAuthError('Sign in failed — try again');
     }
   } catch (e) {
-    showAuthError('Network error — check your connection and try again.');
+    showAuthError('Error: ' + (e.message || e.toString()));
   } finally {
     setAuthLoading(false);
   }
