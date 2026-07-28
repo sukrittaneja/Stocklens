@@ -1111,9 +1111,9 @@ async function signUp() {
       body: JSON.stringify({ email, password: pass })
     });
     const data = await res.json();
-    if (data.error || data.error_description) {
-      showAuthError(data.error_description || data.msg || data.error);
-    } else if (data.access_token) {
+    // DEBUG: show raw response
+    showAuthError('Response: ' + JSON.stringify(data).substring(0, 400));
+    return;
       // Email confirmation disabled — logged in immediately
       await supa.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
       currentUser = data.user;
