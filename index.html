@@ -1199,63 +1199,104 @@ function showApp() {
   navigate('home');
 }
 
-// ── STORAGE (hybrid: localStorage + Supabase) ─────────────────────
+// ── STORAGE (Supabase is source of truth) ────────────────────────
 const Store = {
+  // LocalStorage helpers for non-synced data
   _get(k)    { try { return JSON.parse(localStorage.getItem('sl_'+k)||'null'); } catch { return null; } },
   _set(k, v) { localStorage.setItem('sl_'+k, JSON.stringify(v)); },
-  getWatchlist()  { return this._get('watch')    || []; },
-  getAnalyses()   { return this._get('analyses') || []; },
-  set(k, v) {
-    this._set(k.replace(/^sl_/,''), v);
-    if (k === 'watch' && currentUser) this._syncWatchlist(v).catch(()=>{});
-  },
-  saveAnalysis(a) {
-    const list = this.getAnalyses();
-    const entry = { ...a, id: Date.now() };
-    list.unshift(entry);
-    this._set('analyses', list);
-    if (currentUser && supa) this._pushAnalysis(entry).catch(e => console.error('Sync error:', e));
-  },
-  deleteAnalysis(id) {
-    this._set('analyses', this.getAnalyses().filter(a => a.id !== id));
-    if (currentUser && supa) supa.from('analyses').delete().eq('local_id', id).eq('user_id', currentUser.id).then(()=>{});
-  },
-  async _pushAnalysis(a) {
-    // Check if exists first, then insert or update
-    const { data: existing } = await supa.from('analyses')
-      .select('id').eq('user_id', currentUser.id).eq('local_id', a.id).single();
-    if (existing) {
-      await supa.from('analyses').update({
-        stock: a.stock, date: a.date, framework: a.framework,
-        verdict_key: a.verdictKey, verdict_label: a.verdictLabel,
-        data: a, notes: a.notes || ''
-      }).eq('id', existing.id);
+
+  // ── WATCHLIST (synced) ──────────────────────────────────────────
+  getWatchlist() { return this._get('watch') || []; },
+
+  async set(k, v) {
+    if (k === 'watch') {
+      this._set('watch', v);
+      if (currentUser && supa) {
+        try {
+          await supa.from('watchlist_items').delete().eq('user_id', currentUser.id);
+          if (v.length > 0) {
+            await supa.from('watchlist_items').insert(
+              v.map(w => ({ user_id: currentUser.id, name: w.name, note: w.note||'', added_at: w.added||todayStr() }))
+            );
+          }
+        } catch(e) { console.error('Watchlist sync error:', e); }
+      }
     } else {
-      await supa.from('analyses').insert({
-        user_id: currentUser.id, local_id: a.id, stock: a.stock, date: a.date,
-        framework: a.framework, verdict_key: a.verdictKey, verdict_label: a.verdictLabel,
-        data: a, notes: a.notes || ''
-      });
+      this._set(k.replace(/^sl_/,''), v);
     }
   },
-  async _syncWatchlist(list) {
-    await supa.from('watchlist_items').delete().eq('user_id', currentUser.id);
-    if (list.length > 0) {
-      await supa.from('watchlist_items').insert(
-        list.map(w => ({ user_id: currentUser.id, name: w.name, note: w.note||'', added_at: w.added||todayStr() }))
-      );
+
+  // ── ANALYSES (Supabase only) ────────────────────────────────────
+  getAnalyses() {
+    // Returns localStorage cache — always refreshed from Supabase on navigation
+    return this._get('analyses') || [];
+  },
+
+  async saveAnalysis(a) {
+    const entry = { ...a, id: Date.now() };
+    // Write to Supabase first
+    if (currentUser && supa) {
+      try {
+        await supa.from('analyses').insert({
+          user_id: currentUser.id, local_id: entry.id,
+          stock: entry.stock, date: entry.date,
+          framework: entry.framework,
+          verdict_key: entry.verdictKey, verdict_label: entry.verdictLabel,
+          data: entry, notes: entry.notes || ''
+        });
+        // Pull fresh from Supabase to update local cache
+        await this.pullFromCloud();
+      } catch(e) {
+        console.error('Save error:', e);
+        // Fallback to localStorage only
+        const list = this.getAnalyses();
+        list.unshift(entry);
+        this._set('analyses', list);
+      }
+    } else {
+      const list = this.getAnalyses();
+      list.unshift(entry);
+      this._set('analyses', list);
     }
   },
+
+  async deleteAnalysis(id) {
+    // Delete from Supabase first
+    if (currentUser && supa) {
+      try {
+        await supa.from('analyses').delete().eq('local_id', id).eq('user_id', currentUser.id);
+        await this.pullFromCloud(); // Pull fresh to update local cache
+      } catch(e) { console.error('Delete error:', e); }
+    } else {
+      this._set('analyses', this.getAnalyses().filter(a => a.id !== id));
+    }
+  },
+
+  // ── PULL FROM CLOUD ─────────────────────────────────────────────
   async pullFromCloud() {
     if (!currentUser || !supa) return;
-    const { data: analyses } = await supa.from('analyses').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
-    if (analyses && analyses.length > 0) {
-      this._set('analyses', analyses.map(r => ({ ...(r.data||{}), id: r.local_id||r.id, stock: r.stock, date: r.date, framework: r.framework, verdictKey: r.verdict_key, verdictLabel: r.verdict_label, notes: r.notes })));
-    }
-    const { data: watchlist } = await supa.from('watchlist_items').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: true });
-    if (watchlist) this._set('watch', watchlist.map(w => ({ name: w.name, note: w.note, added: w.added_at })));
+    try {
+      const { data: analyses, error } = await supa
+        .from('analyses').select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+      if (!error) {
+        // Always overwrite local cache — Supabase is source of truth
+        this._set('analyses', (analyses||[]).map(r => ({
+          ...(r.data||{}), id: r.local_id||r.id,
+          stock: r.stock, date: r.date, framework: r.framework,
+          verdictKey: r.verdict_key, verdictLabel: r.verdict_label, notes: r.notes
+        })));
+      }
+      const { data: watchlist } = await supa
+        .from('watchlist_items').select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: true });
+      if (watchlist) this._set('watch', watchlist.map(w => ({ name: w.name, note: w.note, added: w.added_at })));
+    } catch(e) { console.error('Pull error:', e); }
   }
 };
+
 
 // ── PE LOOKUP TABLE MODAL ─────────────────────────────────────────
 function growthLabel(g) {
@@ -1432,7 +1473,7 @@ function updateTriageScore() {
   }
 }
 
-function saveTriage() {
+async function saveTriage() {
   const stock = document.getElementById('tr-stock').value.trim().toUpperCase();
   const date  = document.getElementById('tr-date').value;
   if (!stock) { showToast('Enter a stock name first'); return; }
@@ -1447,7 +1488,7 @@ function saveTriage() {
   else if (yes >= 4) { verdictKey = 'yellow'; verdictLabel = 'Watchlist'; }
   else { verdictKey = 'red'; verdictLabel = 'Skip'; }
 
-  Store.saveAnalysis({
+  await Store.saveAnalysis({
     stock, date, framework: 'Triage',
     hardStops: { hs1: triageState.hs1, hs2: triageState.hs2 },
     scores: SCORED_ITEMS.reduce((o,id) => ({...o,[id]:triageState[id]}),{}),
@@ -1995,7 +2036,7 @@ function updateCLScore() {
   }
 }
 
-function saveChecklist() {
+async function saveChecklist() {
   const stock = document.getElementById('cl-stock').value.trim().toUpperCase();
   const date  = document.getElementById('cl-date').value;
   if(!stock){showToast('Enter a stock name first');return;}
@@ -2009,7 +2050,7 @@ function saveChecklist() {
   else if(pct>=0.8){verdictKey='green';verdictLabel='High Conviction';}
   else if(pct>=0.6){verdictKey='yellow';verdictLabel='Medium Conviction';}
   else{verdictKey='red';verdictLabel='Low Conviction';}
-  Store.saveAnalysis({
+  await Store.saveAnalysis({
     stock,date,framework:'Checklist',
     sector:document.getElementById('cl-sector').value,
     bizModel:document.getElementById('cl-biz-model').value.trim(),
@@ -2134,7 +2175,7 @@ function updateVerdict(gap, actual, implied) {
 function fmt(n) { return (n * 100).toFixed(1) + '%'; }
 function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
 
-function saveAnalysis() {
+async function saveAnalysis() {
   const stock = document.getElementById('gem-stock').value.trim().toUpperCase();
   const date = document.getElementById('gem-date').value;
 
@@ -2164,7 +2205,7 @@ function saveAnalysis() {
     else { verdictKey = 'yellow'; verdictLabel = 'Fairly Valued'; }
   }
 
-  Store.saveAnalysis({
+  await Store.saveAnalysis({
     stock, date, framework: 'GEM',
     oldEPS, newEPS, years, haircut,
     override: overrideRaw ? parseFloat(overrideRaw) : null,
@@ -2208,22 +2249,22 @@ function closeModalDirect() {
   document.getElementById('modal-overlay').classList.remove('open');
 }
 
-function addToWatchlist() {
+async function addToWatchlist() {
   const name = document.getElementById('modal-stock').value.trim().toUpperCase();
   if (!name) { showToast('Enter a stock name'); return; }
   const list = Store.getWatchlist();
   if (list.find(s => s.name === name)) { showToast('Already in watchlist'); return; }
   list.push({ name, note: document.getElementById('modal-note').value.trim(), added: todayStr() });
-  Store.set('watch', list);
+  await Store.set('watch', list);
   closeModalDirect();
   renderWatchlist();
   showToast('Added ' + name);
 }
 
-function removeFromWatchlist(name) {
+async function removeFromWatchlist(name) {
   if (!confirm('Remove ' + name + ' from watchlist?')) return;
   const list = Store.getWatchlist().filter(s => s.name !== name);
-  Store.set('watch', list);
+  await Store.set('watch', list);
   renderWatchlist();
 }
 
@@ -2415,9 +2456,9 @@ function openDetail(id) {
   document.getElementById('screen-detail').scrollTop = 0;
 }
 
-function deleteCurrentAnalysis() {
+async function deleteCurrentAnalysis() {
   if (!confirm('Delete this analysis? This cannot be undone.')) return;
-  Store.deleteAnalysis(currentDetailId);
+  await Store.deleteAnalysis(currentDetailId);
   updateBadge();
   showToast('Analysis deleted');
   navigate('saved');
