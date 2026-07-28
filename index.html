@@ -1103,21 +1103,26 @@ async function signUp() {
   if (pass.length < 6) { showAuthError('Password must be at least 6 characters'); return; }
   setAuthLoading(true);
   try {
-    const { data, error } = await supa.auth.signUp({ email, password: pass });
-    if (error) {
-      showAuthError(error.message);
-    } else if (data?.user?.identities?.length === 0) {
-      showAuthError('An account with this email already exists. Try signing in instead.');
-    } else if (data?.session) {
+    // Direct REST call — avoids Bearer header issue with new Supabase key format
+    const res = await fetch(`${SUPA_URL}/auth/v1/signup`, {
+      method: 'POST',
+      headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    const data = await res.json();
+    if (data.error || data.error_description) {
+      showAuthError(data.error_description || data.msg || data.error);
+    } else if (data.access_token) {
       // Email confirmation disabled — logged in immediately
-      currentUser = data.session.user;
+      await supa.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
+      currentUser = data.user;
       await Store.pullFromCloud();
       showApp();
     } else {
-      showAuthError('✓ Check your email to confirm your account then sign in', true);
+      showAuthError('✓ Check your email to confirm your account, then sign in', true);
     }
   } catch (e) {
-    showAuthError('Something went wrong. Check your connection and try again.');
+    showAuthError('Network error — check your connection and try again.');
   } finally {
     setAuthLoading(false);
   }
@@ -1129,10 +1134,25 @@ async function signIn() {
   if (!email || !pass) { showAuthError('Enter email and password'); return; }
   setAuthLoading(true);
   try {
-    const { error } = await supa.auth.signInWithPassword({ email, password: pass });
-    if (error) showAuthError(error.message);
+    // Direct REST call — avoids Bearer header issue with new Supabase key format
+    const res = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    const data = await res.json();
+    if (data.error || data.error_description) {
+      showAuthError(data.error_description || data.error || 'Invalid email or password');
+    } else if (data.access_token) {
+      await supa.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
+      currentUser = data.user;
+      await Store.pullFromCloud();
+      showApp();
+    } else {
+      showAuthError('Sign in failed — try again');
+    }
   } catch (e) {
-    showAuthError('Something went wrong. Check your connection and try again.');
+    showAuthError('Network error — check your connection and try again.');
   } finally {
     setAuthLoading(false);
   }
