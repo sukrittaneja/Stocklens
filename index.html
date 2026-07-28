@@ -1111,16 +1111,16 @@ async function signUp() {
       body: JSON.stringify({ email, password: pass })
     });
     const data = await res.json();
-    // DEBUG: show raw response
-    showAuthError('Response: ' + JSON.stringify(data).substring(0, 400));
-    return;
-      // Email confirmation disabled — logged in immediately
+    if (data.error || data.error_description) {
+      showAuthError(data.error_description || data.msg || data.error || JSON.stringify(data));
+    } else if (data.access_token) {
       await supa.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
       currentUser = data.user;
       await Store.pullFromCloud();
       showApp();
     } else {
-      showAuthError('✓ Check your email to confirm your account, then sign in', true);
+      // Show raw response for debugging
+      showAuthError('Unexpected response: ' + JSON.stringify(data).substring(0, 300));
     }
   } catch (e) {
     showAuthError('Error: ' + (e.message || e.toString()));
