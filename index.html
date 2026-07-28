@@ -8,8 +8,8 @@
 <meta name="theme-color" content="#0D1117">
 <title>StockLens</title>
 <link rel="manifest" href="manifest.json">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -403,7 +403,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div style="font-size:13px;color:var(--text3);margin-top:4px">Your personal investment framework</div>
     </div>
     <div class="card">
-      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">Create a free account — or sign in if you already have one. Your email and password are only used to sync your analyses across devices.</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">Create a free account to get started. Your analyses sync across all your devices.</p>
       <div id="login-error" style="display:none;padding:10px 12px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--r-sm);font-size:13px;color:var(--red);margin-bottom:14px"></div>
       <div class="field">
         <label>Email</label>
@@ -433,7 +433,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         <h1>💎 StockLens</h1>
         <p>Your personal GEM analyser</p>
       </div>
-      <button onclick="signOut()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text3);font-size:12px;padding:6px 12px;border-radius:var(--r-sm);cursor:pointer;font-family:inherit">Sign out</button>
+
     </div>
     <div id="review-banner" class="review-banner" style="display:none">
       <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
@@ -1104,23 +1104,21 @@ async function signUp() {
   if (pass.length < 6) { showAuthError('Password must be at least 6 characters'); return; }
   setAuthLoading(true);
   try {
-    // Direct REST call — avoids Bearer header issue with new Supabase key format
     const res = await fetch(`${SUPA_URL}/auth/v1/signup`, {
       method: 'POST',
       headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password: pass })
     });
     const data = await res.json();
-    if (data.error || data.error_description) {
-      showAuthError(data.error_description || data.msg || data.error || JSON.stringify(data));
+    if (data.error || data.error_description || data.code >= 400) {
+      showAuthError(data.msg || data.error_description || data.error || JSON.stringify(data));
     } else if (data.access_token) {
       await supa.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
       currentUser = data.user;
       await Store.pullFromCloud();
       showApp();
     } else {
-      // Show raw response for debugging
-      showAuthError('Unexpected response: ' + JSON.stringify(data).substring(0, 300));
+      showAuthError('✓ Account created — now sign in below', true);
     }
   } catch (e) {
     showAuthError('Error: ' + (e.message || e.toString()));
@@ -1141,15 +1139,15 @@ async function signIn() {
       body: JSON.stringify({ email, password: pass })
     });
     const data = await res.json();
-    if (data.error || data.error_description) {
-      showAuthError(data.error_description || data.error || 'Invalid email or password');
+    if (data.error || data.error_description || data.code >= 400) {
+      showAuthError(data.msg || data.error_description || data.error || JSON.stringify(data));
     } else if (data.access_token) {
       await supa.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
       currentUser = data.user;
       await Store.pullFromCloud();
       showApp();
     } else {
-      showAuthError('Sign in failed — try again');
+      showAuthError('Sign in failed: ' + JSON.stringify(data).substring(0, 200));
     }
   } catch (e) {
     showAuthError('Error: ' + (e.message || e.toString()));
@@ -1159,13 +1157,14 @@ async function signIn() {
 }
 
 async function signOut() {
-  await supa.auth.signOut();
+  if (supa) await supa.auth.signOut();
   currentUser = null;
   showLoginScreen();
 }
 
 function showAuthError(msg, isSuccess = false) {
   const el = document.getElementById('login-error');
+  if (!el) return;
   el.textContent = msg;
   el.style.display = 'block';
   el.style.background = isSuccess ? 'var(--green-bg)' : 'var(--red-bg)';
@@ -1174,67 +1173,56 @@ function showAuthError(msg, isSuccess = false) {
 }
 
 function setAuthLoading(loading) {
-  document.getElementById('signin-btn').textContent = loading ? 'Signing in...' : 'Sign In';
-  document.getElementById('signup-btn').textContent = loading ? '...' : 'Create Account';
+  const s = document.getElementById('signin-btn');
+  const u = document.getElementById('signup-btn');
+  if (s) s.textContent = loading ? '...' : 'Sign In';
+  if (u) u.textContent = loading ? '...' : 'Create Free Account';
 }
 
 function showLoginScreen() {
   document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active'); s.style.display=''; });
-  const loginEl = document.getElementById('screen-login');
-  if (loginEl) { loginEl.classList.add('active'); loginEl.style.display='flex'; }
-  document.getElementById('bottom-nav').style.display = 'none';
+  const el = document.getElementById('screen-login');
+  if (el) { el.classList.add('active'); el.style.display='flex'; }
+  const nav = document.getElementById('bottom-nav');
+  if (nav) nav.style.display = 'none';
 }
 
 function showApp() {
-  const loginEl = document.getElementById('screen-login');
-  if (loginEl) { loginEl.classList.remove('active'); loginEl.style.display='none'; }
-  document.getElementById('bottom-nav').style.display = 'flex';
+  const el = document.getElementById('screen-login');
+  if (el) { el.classList.remove('active'); el.style.display='none'; }
+  const nav = document.getElementById('bottom-nav');
+  if (nav) nav.style.display = 'flex';
   navigate('home');
 }
 
-// ── STORAGE (hybrid: localStorage cache + Supabase cloud) ─────────
+// ── STORAGE (hybrid: localStorage + Supabase) ─────────────────────
 const Store = {
-  // LOCAL CACHE helpers
   _get(k)    { try { return JSON.parse(localStorage.getItem('sl_'+k)||'null'); } catch { return null; } },
   _set(k, v) { localStorage.setItem('sl_'+k, JSON.stringify(v)); },
-
   getWatchlist()  { return this._get('watch')    || []; },
   getAnalyses()   { return this._get('analyses') || []; },
-
   set(k, v) {
     this._set(k.replace(/^sl_/,''), v);
-    // Sync watchlist to Supabase
     if (k === 'watch' && currentUser) this._syncWatchlist(v).catch(()=>{});
   },
-
   saveAnalysis(a) {
     const list = this.getAnalyses();
     const entry = { ...a, id: Date.now() };
     list.unshift(entry);
     this._set('analyses', list);
-    if (currentUser) this._pushAnalysis(entry).catch(()=>{});
+    if (currentUser && supa) this._pushAnalysis(entry).catch(()=>{});
   },
-
   deleteAnalysis(id) {
     this._set('analyses', this.getAnalyses().filter(a => a.id !== id));
-    if (currentUser) supa.from('analyses').delete().eq('local_id', id).eq('user_id', currentUser.id).then(()=>{});
+    if (currentUser && supa) supa.from('analyses').delete().eq('local_id', id).eq('user_id', currentUser.id).then(()=>{});
   },
-
-  // ── Supabase sync ──────────────────────────────────────────────
   async _pushAnalysis(a) {
     await supa.from('analyses').upsert({
-      user_id:       currentUser.id,
-      local_id:      a.id,
-      stock:         a.stock,
-      date:          a.date,
-      framework:     a.framework,
-      verdict_key:   a.verdictKey,
-      verdict_label: a.verdictLabel,
-      data:          a,
-      notes:         a.notes || ''
+      user_id: currentUser.id, local_id: a.id, stock: a.stock, date: a.date,
+      framework: a.framework, verdict_key: a.verdictKey, verdict_label: a.verdictLabel,
+      data: a, notes: a.notes || ''
     }, { onConflict: 'user_id,local_id' });
   },
-
   async _syncWatchlist(list) {
     await supa.from('watchlist_items').delete().eq('user_id', currentUser.id);
     if (list.length > 0) {
@@ -1243,20 +1231,14 @@ const Store = {
       );
     }
   },
-
   async pullFromCloud() {
-    if (!currentUser) return;
-    // Pull analyses
+    if (!currentUser || !supa) return;
     const { data: analyses } = await supa.from('analyses').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
     if (analyses && analyses.length > 0) {
-      const mapped = analyses.map(r => ({ ...(r.data||{}), id: r.local_id||r.id, stock: r.stock, date: r.date, framework: r.framework, verdictKey: r.verdict_key, verdictLabel: r.verdict_label, notes: r.notes }));
-      this._set('analyses', mapped);
+      this._set('analyses', analyses.map(r => ({ ...(r.data||{}), id: r.local_id||r.id, stock: r.stock, date: r.date, framework: r.framework, verdictKey: r.verdict_key, verdictLabel: r.verdict_label, notes: r.notes })));
     }
-    // Pull watchlist
     const { data: watchlist } = await supa.from('watchlist_items').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: true });
-    if (watchlist) {
-      this._set('watch', watchlist.map(w => ({ name: w.name, note: w.note, added: w.added_at })));
-    }
+    if (watchlist) this._set('watch', watchlist.map(w => ({ name: w.name, note: w.note, added: w.added_at })));
   }
 };
 
@@ -2451,15 +2433,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('gem-date').value = todayStr();
   document.getElementById('tr-date').value  = todayStr();
 
-  // Initialize Supabase client (CDN guaranteed loaded by DOMContentLoaded)
   try {
-    if (typeof supabase === 'undefined') throw new Error('Supabase library not loaded');
+    if (typeof supabase === 'undefined') throw new Error('CDN not loaded');
     supa = supabase.createClient(SUPA_URL, SUPA_KEY);
   } catch(e) {
     showLoginScreen();
-    showAuthError('Failed to load — please check your connection and refresh.');
+    showAuthError('Load error — refresh the page');
     return;
   }
+
   const { data: { session } } = await supa.auth.getSession();
   if (session) {
     currentUser = session.user;
@@ -2469,7 +2451,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     showLoginScreen();
   }
 
-  // Listen for auth changes
   supa.auth.onAuthStateChange(async (event, session) => {
     if (session && !currentUser) {
       currentUser = session.user;
@@ -2481,22 +2462,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Real-time sync — when analyses change on another device
-  supa.channel('analyses-sync')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'analyses' }, async () => {
-      if (!currentUser) return;
-      await Store.pullFromCloud();
-      renderSaved();
-      renderWatchlist();
-      updateBadge();
-    })
-    .subscribe();
-
   renderChecklistPhases();
-
-  // Close modal on keyboard dismiss
   document.getElementById('modal-overlay').addEventListener('click', closeModal);
 });
+
 </script>
 </body>
 </html>
