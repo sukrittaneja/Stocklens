@@ -1092,7 +1092,7 @@ function getImpliedGrowth(pe) {
 // ── SUPABASE ──────────────────────────────────────────────────────
 const SUPA_URL = 'https://hocrncptpleujkqqobgm.supabase.co';
 const SUPA_KEY = 'sb_publishable_Spd7XOSjocuRk_wC5qUNag_4anUoMcg';
-const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+let supa = null;
 let currentUser = null;
 
 // ── AUTH ──────────────────────────────────────────────────────────
@@ -2450,7 +2450,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('gem-date').value = todayStr();
   document.getElementById('tr-date').value  = todayStr();
 
-  // Check existing Supabase session
+  // Initialize Supabase client (CDN guaranteed loaded by DOMContentLoaded)
+  try {
+    supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+  } catch(e) {
+    showLoginScreen();
+    showAuthError('Failed to connect to server. Please refresh the page.');
+    return;
+  }
   const { data: { session } } = await supa.auth.getSession();
   if (session) {
     currentUser = session.user;
