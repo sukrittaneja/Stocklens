@@ -7,11 +7,41 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0D1117">
 <title>StockLens</title>
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+/* ── LIGHT THEME (default) ── */
 :root{
+  --bg:#F7F4F0;
+  --surface:#FFFFFF;
+  --surface2:#F0EDE8;
+  --border:#E2DDD7;
+  --border2:#CEC8C0;
+  --text:#1C1917;
+  --text2:#44403C;
+  --text3:#78716C;
+  --accent:#6B9E8F;
+  --accent-dim:#4A7E70;
+  --green:#3D7A56;
+  --green-bg:#EAF4EE;
+  --green-border:#A8D4B8;
+  --yellow:#9A7A2A;
+  --yellow-bg:#FDF5E0;
+  --yellow-border:#D4B86A;
+  --red:#B85450;
+  --red-bg:#FAEDED;
+  --red-border:#E8B4B0;
+  --amber:#9A7A2A;
+  --r:14px;
+  --r-sm:10px;
+  --nav-h:64px;
+}
+
+/* ── DARK THEME ── */
+body.dark{
   --bg:#0D1117;
   --surface:#161B22;
   --surface2:#21262D;
@@ -32,9 +62,6 @@
   --red-bg:#2A0F0F;
   --red-border:#991B1B;
   --amber:#F59E0B;
-  --r:12px;
-  --r-sm:8px;
-  --nav-h:64px;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;line-height:1.5}
 .mono{font-family:'DM Mono',monospace}
@@ -278,7 +305,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 /* ── TRIAGE ── */
 .triage-item{
   padding:14px 16px;border-bottom:1px solid var(--border);
-  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
   transition:background .15s
 }
 .triage-item:last-child{border-bottom:none}
@@ -301,7 +328,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .toggle-btn.active-no{background:var(--red-bg);border-color:var(--red-border);color:var(--red)}
 
 /* scored item buttons */
-.triage-btns{display:flex;gap:5px;flex-shrink:0;padding-top:2px;flex-direction:column}
+.triage-btns{display:flex;gap:5px;flex-shrink:0;padding-top:2px;flex-direction:row}
 .tr-btn{
   padding:5px 10px;border-radius:6px;border:1px solid var(--border);
   background:var(--surface2);color:var(--text3);font-size:12px;font-weight:600;
@@ -311,6 +338,81 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .tr-btn.active-no{background:var(--red-bg);border-color:var(--red-border);color:var(--red)}
 .tr-btn.active-na{background:var(--surface2);border-color:var(--border2);color:var(--text2)}
 
+/* ── CHECKLIST ── */
+.phase-card{margin:12px 16px 0;border-radius:var(--r);overflow:hidden;border:1px solid var(--border)}
+.phase-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;cursor:pointer;user-select:none;
+  transition:background .15s
+}
+.phase-header:active{opacity:.8}
+.phase-title{font-size:14px;font-weight:600}
+.phase-meta{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.phase-pts{font-family:'DM Mono',monospace;font-size:12px;font-weight:500}
+.phase-chevron{font-size:18px;color:var(--text3);transition:transform .2s;line-height:1}
+.phase-body{border-top:1px solid var(--border)}
+.cl-section-hdr{
+  padding:8px 16px;font-size:11px;font-weight:600;
+  letter-spacing:.5px;text-transform:uppercase;
+  background:var(--surface2);color:var(--text3);
+  border-bottom:1px solid var(--border)
+}
+.cl-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid var(--border);gap:10px;
+  transition:background .15s
+}
+.cl-item:last-child{border-bottom:none}
+.cl-item.answered-yes{background:rgba(34,197,94,.06)}
+.cl-item.answered-no{background:rgba(239,68,68,.06)}
+.cl-item.answered-na{background:rgba(107,114,128,.04)}
+.cl-item-content{flex:1;min-width:0}
+.cl-item-text{font-size:13px;font-weight:500;color:var(--text);line-height:1.4}
+.cl-item-hint{font-size:11px;color:var(--text3);margin-top:3px;line-height:1.5}
+.cl-item-wt{font-size:10px;color:var(--text3);margin-top:2px}
+.cl-btns{display:flex;gap:4px;flex-shrink:0}
+.cl-btn{
+  padding:4px 8px;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text3);font-size:11px;font-weight:600;
+  cursor:pointer;transition:all .15s;min-width:36px;text-align:center
+}
+.cl-btn.active-yes{background:var(--green-bg);border-color:var(--green-border);color:var(--green)}
+.cl-btn.active-no{background:var(--red-bg);border-color:var(--red-border);color:var(--red)}
+.cl-btn.active-na{background:var(--surface2);border-color:var(--border2);color:var(--text2)}
+.cl-rejects{padding:10px 16px;background:rgba(239,68,68,.06);border-top:1px solid var(--red-border)}
+.cl-rejects-title{font-size:11px;font-weight:600;color:var(--red);margin-bottom:6px;letter-spacing:.3px}
+.cl-reject-item{font-size:11px;color:var(--red-bg);color:#FCA5A5;margin-bottom:3px;padding-left:8px}
+.phase-reject-badge{
+  width:18px;height:18px;border-radius:50%;background:var(--red);
+  color:#fff;font-size:10px;font-weight:700;display:none;
+  align-items:center;justify-content:center
+}
+
+/* ── SAVED GROUPED VIEW ── */
+.saved-stock-group{border-bottom:1px solid var(--border)}
+.saved-stock-group:last-child{border-bottom:none}
+.saved-stock-header{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 16px 10px;
+}
+.saved-stock-name{font-weight:600;font-size:15px;color:var(--text)}
+.saved-stock-count{font-size:11px;color:var(--text3);margin-top:1px}
+.saved-stock-badge{font-size:16px;margin-left:auto;flex-shrink:0}
+.saved-fw-list{padding:0 16px 12px}
+.saved-fw-row{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:var(--r-sm);
+  background:var(--surface2);border:1px solid var(--border);
+  margin-bottom:6px;cursor:pointer;transition:background .15s
+}
+.saved-fw-row:last-child{margin-bottom:0}
+.saved-fw-row:active{background:var(--border)}
+.saved-fw-icon{font-size:16px;flex-shrink:0}
+.saved-fw-info{flex:1;min-width:0}
+.saved-fw-name{font-size:13px;font-weight:600;color:var(--text);display:block}
+.saved-fw-date{font-size:11px;color:var(--text3)}
+.saved-fw-verdict{font-size:12px;font-weight:600;white-space:nowrap}
+
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar{width:0;height:0}
 </style>
@@ -319,11 +421,48 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 <div id="app">
 
+  <!-- ══ SCREEN: LOGIN ══ -->
+  <div id="screen-login" class="screen active" style="display:flex;flex-direction:column;justify-content:center;padding:32px 24px;min-height:100dvh">
+    <div style="text-align:center;margin-bottom:40px">
+      <div style="font-size:48px;margin-bottom:12px">💎</div>
+      <div style="font-size:24px;font-weight:700;color:var(--text)">StockLens</div>
+      <div style="font-size:13px;color:var(--text3);margin-top:4px">Your personal investment framework</div>
+    </div>
+    <div class="card">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">Create a free account to get started. Your analyses sync across all your devices.</p>
+      <div id="login-error" style="display:none;padding:10px 12px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--r-sm);font-size:13px;color:var(--red);margin-bottom:14px"></div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="auth-email" placeholder="you@example.com" autocomplete="email" style="font-size:16px">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Password</label>
+        <input type="password" id="auth-password" placeholder="6+ characters" autocomplete="current-password" style="font-size:16px">
+      </div>
+    </div>
+    <div style="margin:12px 0 0">
+      <button class="btn btn-primary" onclick="signUp()" id="signup-btn">Create Free Account</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin:14px 0">
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <span style="font-size:12px;color:var(--text3)">already have an account?</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+    <button class="btn btn-ghost" onclick="signIn()" id="signin-btn">Sign In</button>
+    <p style="text-align:center;font-size:11px;color:var(--text3);margin-top:20px;line-height:1.6">Your data is private and only visible to you.<br>No ads. No tracking. No subscriptions.</p>
+  </div>
+
   <!-- ══ SCREEN: HOME / WATCHLIST ══ -->
   <div id="screen-home" class="screen active">
-    <div class="screen-header">
-      <h1>💎 StockLens</h1>
-      <p>Your personal GEM analyser</p>
+    <div class="screen-header" style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <h1>💎 StockLens</h1>
+        <p>Your personal GEM analyser</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="theme-toggle" onclick="toggleTheme()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center" title="Toggle theme">🌙</button>
+        <button onclick="signOut()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text3);font-size:12px;padding:6px 12px;border-radius:var(--r-sm);cursor:pointer;font-family:inherit">Sign out</button>
+      </div>
     </div>
     <div id="review-banner" class="review-banner" style="display:none">
       <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
@@ -613,16 +752,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
           <button class="toggle-btn no" onclick="setHardStop('hs2','no')">✗</button>
         </div>
       </div>
-      <div class="triage-item hard-stop" data-id="hs3">
-        <div class="triage-content">
-          <div class="triage-label">No recent sharp run-up?</div>
-          <div class="triage-hint">Stock up 15-20%+ in the last week or month? You'd be chasing. Wait for it to cool or a better entry.</div>
-        </div>
-        <div class="triage-toggle" data-id="hs3">
-          <button class="toggle-btn yes" onclick="setHardStop('hs3','yes')">✓</button>
-          <button class="toggle-btn no" onclick="setHardStop('hs3','no')">✗</button>
-        </div>
-      </div>
     </div>
 
     <!-- Hard stop warning -->
@@ -792,6 +921,75 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   </div><!-- end screen-triage -->
 
 
+  <!-- ══ SCREEN: FULL CHECKLIST ══ -->
+  <div id="screen-checklist" class="screen">
+    <div class="screen-header">
+      <h1>Full Checklist</h1>
+      <p>Phases 1–7 · 65 items · Complete analysis</p>
+    </div>
+    <div class="card">
+      <div class="field-row">
+        <div class="field" style="margin:0">
+          <label>Stock name</label>
+          <input type="text" id="cl-stock" placeholder="e.g. TCS" autocapitalize="characters" autocomplete="off">
+        </div>
+        <div class="field" style="margin:0">
+          <label>Date</label>
+          <input type="date" id="cl-date">
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px;margin-bottom:0">
+        <label>Sector</label>
+        <select id="cl-sector" onchange="renderChecklistPhases()">
+          <option value="">Select sector...</option>
+          <option>Banking / NBFC</option><option>IT / Software</option>
+          <option>Pharma</option><option>Healthcare / Hospitals</option>
+          <option>FMCG / Consumer</option><option>Auto &amp; Ancillary</option>
+          <option>Metals / Commodities</option><option>Real Estate</option>
+          <option>Infra / Capital Goods</option><option>Energy / Oil &amp; Gas</option>
+          <option>Telecom</option><option>Chemicals / Specialty Chemicals</option>
+          <option>Textiles / Apparel</option><option>Media &amp; Entertainment</option>
+          <option>Retail</option><option>Early-stage / Turnaround</option>
+        </select>
+      </div>
+    </div>
+    <p class="section-label">Business Understanding
+      <span style="font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;font-size:11px;display:block;margin-top:2px">Write before answering checkboxes — forces clarity of thinking</span>
+    </p>
+    <div class="card">
+      <div class="field">
+        <label>How does this business make money?</label>
+        <textarea id="cl-biz-model" placeholder="Revenue sources, business model, margin drivers... (2-3 sentences)"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>What could kill it?</label>
+        <textarea id="cl-biz-risk" placeholder="Main business risk, competitive threat... (1-2 sentences)"></textarea>
+      </div>
+    </div>
+    <div id="cl-score-bar" class="verdict-card neutral" style="margin:12px 16px 0;padding:14px 16px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div><div class="verdict-label">Overall Score</div><div class="verdict-text" id="cl-score-text" style="font-size:16px">0 / 0 pts</div></div>
+        <div style="text-align:right"><div class="verdict-label">Verdict</div><div id="cl-verdict-text" style="font-size:14px;font-weight:600;color:var(--text2)">Answer items below</div></div>
+      </div>
+      <div style="margin-top:10px;background:var(--surface2);border-radius:4px;height:6px;overflow:hidden">
+        <div id="cl-progress-bar" style="height:100%;width:0%;background:var(--accent);border-radius:4px;transition:width .3s"></div>
+      </div>
+    </div>
+    <div id="cl-phases"></div>
+    <p class="section-label">Notes</p>
+    <div class="card">
+      <div class="field" style="margin:0">
+        <textarea id="cl-notes" placeholder="Investment thesis, key risks, why you like or don't like this stock..."></textarea>
+      </div>
+    </div>
+    <div style="margin:16px 16px 0">
+      <button class="btn btn-primary" onclick="saveChecklist()">Save Analysis</button>
+    </div>
+    <div style="margin:10px 16px 0">
+      <button class="btn btn-ghost" onclick="resetChecklist()">Clear / New Analysis</button>
+    </div>
+  </div>
+
   <div id="screen-detail" class="screen">
     <div class="detail-header">
       <div class="back-btn" onclick="goBack()">
@@ -821,6 +1019,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <button class="nav-btn" onclick="navigate('triage')" id="nav-triage">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"/></svg>
       Triage
+    </button>
+    <button class="nav-btn" onclick="navigate('checklist')" id="nav-checklist">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+      Checklist
     </button>
     <button class="nav-btn" onclick="navigate('saved')" id="nav-saved">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-7-3.5L5 21V5z"/></svg>
@@ -917,21 +1119,230 @@ function getImpliedGrowth(pe) {
   return res;
 }
 
-// ── STORAGE ──────────────────────────────────────────────────────
+// ── THEME ─────────────────────────────────────────────────────────
+function toggleTheme() {
+  const isDark = document.body.classList.toggle('dark');
+  localStorage.setItem('sl-theme', isDark ? 'dark' : 'light');
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = isDark ? '☀️' : '🌙';
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('sl-theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const useDark = saved ? saved === 'dark' : prefersDark;
+  if (useDark) document.body.classList.add('dark');
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = useDark ? '☀️' : '🌙';
+}
+
+// ── SUPABASE ──────────────────────────────────────────────────────
+const SUPA_URL = 'https://hocrncptpleujkqqobgm.supabase.co';
+const SUPA_KEY = 'sb_publishable_Spd7XOSjocuRk_wC5qUNag_4anUoMcg';
+let supa = null;
+let currentUser = null;
+
+// ── AUTH ──────────────────────────────────────────────────────────
+async function signUp() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-password').value;
+  if (!email || !pass) { showAuthError('Enter email and password'); return; }
+  if (pass.length < 6) { showAuthError('Password must be at least 6 characters'); return; }
+  setAuthLoading(true);
+  try {
+    const res = await fetch(`${SUPA_URL}/auth/v1/signup`, {
+      method: 'POST',
+      headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    const data = await res.json();
+    if (data.error || data.error_description || data.code >= 400) {
+      showAuthError(data.msg || data.error_description || data.error || JSON.stringify(data));
+    } else if (data.access_token) {
+      await supa.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
+      // Also manually persist in case supabase-js doesn't with new key format
+      localStorage.setItem('stocklens-auth-token', JSON.stringify({ access_token: data.access_token, refresh_token: data.refresh_token }));
+      currentUser = data.user;
+      await Store.pullFromCloud();
+      showApp();
+    } else {
+      showAuthError('✓ Account created — now sign in below', true);
+    }
+  } catch (e) {
+    showAuthError('Error: ' + (e.message || e.toString()));
+  } finally {
+    setAuthLoading(false);
+  }
+}
+
+async function signIn() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-password').value;
+  if (!email || !pass) { showAuthError('Enter email and password'); return; }
+  setAuthLoading(true);
+  try {
+    const res = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    const data = await res.json();
+    if (data.error || data.error_description || data.code >= 400) {
+      showAuthError(data.msg || data.error_description || data.error || JSON.stringify(data));
+    } else if (data.access_token) {
+      await supa.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
+      localStorage.setItem('stocklens-auth-token', JSON.stringify({ access_token: data.access_token, refresh_token: data.refresh_token }));
+      currentUser = data.user;
+      await Store.pullFromCloud();
+      showApp();
+    } else {
+      showAuthError('Sign in failed: ' + JSON.stringify(data).substring(0, 200));
+    }
+  } catch (e) {
+    showAuthError('Error: ' + (e.message || e.toString()));
+  } finally {
+    setAuthLoading(false);
+  }
+}
+
+async function signOut() {
+  if (supa) await supa.auth.signOut();
+  localStorage.removeItem('stocklens-auth-token');
+  currentUser = null;
+  showLoginScreen();
+}
+
+function showAuthError(msg, isSuccess = false) {
+  const el = document.getElementById('login-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.background = isSuccess ? 'var(--green-bg)' : 'var(--red-bg)';
+  el.style.borderColor = isSuccess ? 'var(--green-border)' : 'var(--red-border)';
+  el.style.color = isSuccess ? 'var(--green)' : 'var(--red)';
+}
+
+function setAuthLoading(loading) {
+  const s = document.getElementById('signin-btn');
+  const u = document.getElementById('signup-btn');
+  if (s) s.textContent = loading ? '...' : 'Sign In';
+  if (u) u.textContent = loading ? '...' : 'Create Free Account';
+}
+
+function showLoginScreen() {
+  document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active'); s.style.display=''; });
+  const el = document.getElementById('screen-login');
+  if (el) { el.classList.add('active'); el.style.display='flex'; }
+  const nav = document.getElementById('bottom-nav');
+  if (nav) nav.style.display = 'none';
+}
+
+function showApp() {
+  const el = document.getElementById('screen-login');
+  if (el) { el.classList.remove('active'); el.style.display='none'; }
+  const nav = document.getElementById('bottom-nav');
+  if (nav) nav.style.display = 'flex';
+  navigate('home');
+}
+
+// ── STORAGE (Supabase is source of truth) ────────────────────────
 const Store = {
-  get(k) { try { return JSON.parse(localStorage.getItem('sl_' + k) || 'null'); } catch { return null; } },
-  set(k, v) { localStorage.setItem('sl_' + k, JSON.stringify(v)); },
-  getWatchlist() { return this.get('watch') || []; },
-  getAnalyses() { return this.get('analyses') || []; },
-  saveAnalysis(a) {
-    const list = this.getAnalyses();
-    list.unshift({ ...a, id: Date.now() });
-    this.set('analyses', list);
+  // LocalStorage helpers for non-synced data
+  _get(k)    { try { return JSON.parse(localStorage.getItem('sl_'+k)||'null'); } catch { return null; } },
+  _set(k, v) { localStorage.setItem('sl_'+k, JSON.stringify(v)); },
+
+  // ── WATCHLIST (synced) ──────────────────────────────────────────
+  getWatchlist() { return this._get('watch') || []; },
+
+  async set(k, v) {
+    if (k === 'watch') {
+      this._set('watch', v);
+      if (currentUser && supa) {
+        try {
+          await supa.from('watchlist_items').delete().eq('user_id', currentUser.id);
+          if (v.length > 0) {
+            await supa.from('watchlist_items').insert(
+              v.map(w => ({ user_id: currentUser.id, name: w.name, note: w.note||'', added_at: w.added||todayStr() }))
+            );
+          }
+        } catch(e) { console.error('Watchlist sync error:', e); }
+      }
+    } else {
+      this._set(k.replace(/^sl_/,''), v);
+    }
   },
-  deleteAnalysis(id) {
-    this.set('analyses', this.getAnalyses().filter(a => a.id !== id));
+
+  // ── ANALYSES (Supabase only) ────────────────────────────────────
+  getAnalyses() {
+    // Returns localStorage cache — always refreshed from Supabase on navigation
+    return this._get('analyses') || [];
+  },
+
+  async saveAnalysis(a) {
+    const entry = { ...a, id: Date.now() };
+    // Write to Supabase first
+    if (currentUser && supa) {
+      try {
+        await supa.from('analyses').insert({
+          user_id: currentUser.id, local_id: entry.id,
+          stock: entry.stock, date: entry.date,
+          framework: entry.framework,
+          verdict_key: entry.verdictKey, verdict_label: entry.verdictLabel,
+          data: entry, notes: entry.notes || ''
+        });
+        // Pull fresh from Supabase to update local cache
+        await this.pullFromCloud();
+      } catch(e) {
+        console.error('Save error:', e);
+        // Fallback to localStorage only
+        const list = this.getAnalyses();
+        list.unshift(entry);
+        this._set('analyses', list);
+      }
+    } else {
+      const list = this.getAnalyses();
+      list.unshift(entry);
+      this._set('analyses', list);
+    }
+  },
+
+  async deleteAnalysis(id) {
+    // Delete from Supabase first
+    if (currentUser && supa) {
+      try {
+        await supa.from('analyses').delete().eq('local_id', id).eq('user_id', currentUser.id);
+        await this.pullFromCloud(); // Pull fresh to update local cache
+      } catch(e) { console.error('Delete error:', e); }
+    } else {
+      this._set('analyses', this.getAnalyses().filter(a => a.id !== id));
+    }
+  },
+
+  // ── PULL FROM CLOUD ─────────────────────────────────────────────
+  async pullFromCloud() {
+    if (!currentUser || !supa) return;
+    try {
+      const { data: analyses, error } = await supa
+        .from('analyses').select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+      if (!error) {
+        // Always overwrite local cache — Supabase is source of truth
+        this._set('analyses', (analyses||[]).map(r => ({
+          ...(r.data||{}), id: r.local_id||r.id,
+          stock: r.stock, date: r.date, framework: r.framework,
+          verdictKey: r.verdict_key, verdictLabel: r.verdict_label, notes: r.notes
+        })));
+      }
+      const { data: watchlist } = await supa
+        .from('watchlist_items').select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: true });
+      if (watchlist) this._set('watch', watchlist.map(w => ({ name: w.name, note: w.note, added: w.added_at })));
+    } catch(e) { console.error('Pull error:', e); }
   }
 };
+
 
 // ── PE LOOKUP TABLE MODAL ─────────────────────────────────────────
 function growthLabel(g) {
@@ -1014,13 +1425,13 @@ function renderPETable(data, highlight) {
 
 // ── TRIAGE LOGIC ─────────────────────────────────────────────────
 const triageState = {
-  hs1: null, hs2: null, hs3: null,
+  hs1: null, hs2: null,
   t1: null, t2: null, t3: null, t4: null, t5: null,
   t6: null, t7: null, t8: null, t9: null, t10: null
 };
 
 const SCORED_ITEMS = ['t1','t2','t3','t4','t5','t6','t7','t8','t9','t10'];
-const HARD_STOPS   = ['hs1','hs2','hs3'];
+const HARD_STOPS   = ['hs1','hs2'];
 
 function setHardStop(id, val) {
   triageState[id] = val;
@@ -1108,7 +1519,7 @@ function updateTriageScore() {
   }
 }
 
-function saveTriage() {
+async function saveTriage() {
   const stock = document.getElementById('tr-stock').value.trim().toUpperCase();
   const date  = document.getElementById('tr-date').value;
   if (!stock) { showToast('Enter a stock name first'); return; }
@@ -1123,9 +1534,9 @@ function saveTriage() {
   else if (yes >= 4) { verdictKey = 'yellow'; verdictLabel = 'Watchlist'; }
   else { verdictKey = 'red'; verdictLabel = 'Skip'; }
 
-  Store.saveAnalysis({
+  await Store.saveAnalysis({
     stock, date, framework: 'Triage',
-    hardStops: { hs1: triageState.hs1, hs2: triageState.hs2, hs3: triageState.hs3 },
+    hardStops: { hs1: triageState.hs1, hs2: triageState.hs2 },
     scores: SCORED_ITEMS.reduce((o,id) => ({...o,[id]:triageState[id]}),{}),
     yesCount: yes, totalScored: total,
     verdictKey, verdictLabel,
@@ -1165,7 +1576,6 @@ const TRIAGE_LABELS = {
   t10:'FII / DII holdings increasing',
   hs1:'Understands the business',
   hs2:'No governance / fraud red flags',
-  hs3:'No recent sharp run-up',
 };
 
 // ── NAVIGATION ───────────────────────────────────────────────────
@@ -1178,12 +1588,19 @@ function navigate(screen) {
   currentScreen = screen;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('screen-' + screen).classList.add('active');
+  const screenEl = document.getElementById('screen-' + screen);
+  if (screenEl) screenEl.classList.add('active');
   const navBtn = document.getElementById('nav-' + screen);
   if (navBtn) navBtn.classList.add('active');
   document.getElementById('bottom-nav').style.display = screen === 'detail' ? 'none' : 'flex';
   if (screen === 'home') renderWatchlist();
-  if (screen === 'saved') renderSaved();
+  if (screen === 'saved') {
+    Store.pullFromCloud().then(() => {
+      renderSaved();
+      updateBadge();
+    });
+  }
+  if (screen === 'checklist') renderChecklistPhases();
   window.scrollTo(0, 0);
 }
 
@@ -1203,7 +1620,540 @@ function toggleHelp() {
   chevron.style.transform = open ? 'rotate(90deg)' : 'rotate(0deg)';
 }
 
-// ── GEM CALCULATOR ────────────────────────────────────────────────
+// ── FULL CHECKLIST DATA ───────────────────────────────────────────
+// Hard stops: answered 'yes' means BAD CONDITION IS PRESENT → auto-reject
+// Scored items: yes=good, no=bad, na=not applicable
+
+const CL_HARD_STOPS = [
+  // Phase 1
+  {id:'hs1_1', phase:1, text:'Promoter pledge > 50%?', hint:'Check Screener.in → Shareholding tab → Pledge %. If yes, skip.'},
+  {id:'hs1_2', phase:1, text:'Proven fraud or serious governance issue in last 3 years?', hint:'SEBI action, court cases, auditor qualifications citing misstatement.'},
+  {id:'hs1_3', phase:1, text:'Debt/Equity > 2x (excluding BFSI and regulated infra)?', hint:'Screener.in → Ratios. For manufacturing/chemicals/IT, D/E > 2 = hard reject.'},
+  {id:'hs1_4', phase:1, text:'OCF persistently below Net Profit for 3+ years?', hint:'Screener.in → Cash Flow. Profit without cash = earnings quality problem.'},
+  // Phase 2
+  {id:'hs2_1', phase:2, text:'PE > 2x own 5yr average with no extraordinary growth reason?', hint:'Paying double the historical multiple means the margin of safety is gone.'},
+  {id:'hs2_2', phase:2, text:'FCF Yield negative?', hint:'Company not generating free cash. Paying to hold it.'},
+  // Phase 3
+  {id:'hs3_1', phase:3, text:'EPS declining for 3+ consecutive quarters?', hint:'Screener.in → Quarters tab. Sustained EPS decline = structural problem.'},
+  // Phase 4
+  {id:'hs4_1', phase:4, text:'FII and DII both reducing simultaneously?', hint:'When both are selling, it is a strong institutional exit signal.'},
+  {id:'hs4_2', phase:4, text:'Promoter selling aggressively (>2% in last 2 quarters)?', hint:'Screener.in → Shareholding. Promoter knows the business best.'},
+
+];
+
+const CL_DATA = [
+  { phase:1, name:'Business Quality', target:56, color:'1E3A5F',
+    sections:[
+      { name:'1.1  Business Understanding', items:[
+        {id:'p1_1',text:'Can you explain what the company does in 2 sentences?',weight:2,hint:'If you cannot explain it simply, you do not understand it well enough.'},
+        {id:'p1_2',text:'Do you understand how it makes money (business model)?',weight:2,hint:'Revenue sources, cost structure, margin drivers.'},
+        {id:'p1_3',text:'Is the product/service essential or discretionary?',weight:1,hint:'Essential businesses are more resilient in downturns.'},
+        {id:'p1_4',text:'Does it have recognizable brand or market leadership?',weight:2,hint:'Top 1-3 in its segment counts.'},
+      ]},
+      { name:'1.2  Competitive Moat', items:[
+        {id:'p1_5',text:'Does the company have pricing power?',weight:3,hint:'Can it raise prices without losing significant volume?'},
+        {id:'p1_6',text:'Is it a market leader or top 3 in its segment?',weight:2,hint:'Market share data from annual report or industry reports.'},
+        {id:'p1_7',text:'Are operating margins stable or expanding over 5 years?',weight:3,hint:'Screener.in → P&L → OPM % row. Stable or rising = moat signal.'},
+        {id:'p1_8',text:'High switching costs, network effects, or cost advantages?',weight:3,hint:'Any of these = durable competitive advantage.'},
+      ]},
+      { name:'1.3  Management Quality', items:[
+        {id:'p1_9',text:'Promoter holding >= 50% and stable or increasing?',weight:3,hint:'Screener.in → Shareholding tab.'},
+        {id:'p1_10',text:'Promoter pledge % low (ideally < 10%)?',weight:3,hint:'High pledge = risk. Shown in shareholding section.'},
+        {id:'p1_11',text:'Has management delivered on past guidance?',weight:2,hint:'Check last 2-3 annual report commentary vs actual results.'},
+        {id:'p1_12',text:'No history of fraud, governance issues, or regulatory penalties?',weight:3,hint:'SEBI orders, court cases, auditor qualifications.'},
+        {id:'p1_13',text:'Management commentary honest about challenges?',weight:1,hint:'Always-rosy commentary is a red flag.'},
+        {id:'p1_30',text:'Capital allocation disciplined — buybacks, dividends, or acquisitions done wisely?',weight:2,hint:'Annual report → use of cash. Acquisitions at crazy valuations = red flag.'},
+        {id:'p1_31',text:'No significant related party transactions (RPTs) at non-market terms?',weight:2,hint:'Annual report → RPT section. Loans to promoter entities, sweetheart deals.'},
+        {id:'p1_32',text:'Auditor quality — known firm, no qualifications in audit report?',weight:1,hint:'Big 4 or reputed mid-tier. Qualified opinion = serious warning.'},
+      ]},
+      { name:'1.4  Balance Sheet Health', items:[
+        {id:'p1_14',text:'Debt/Equity < 0.5 (or justified if capital-intensive)?',weight:2,hint:'Screener.in → Ratios → Debt to Equity.',sector:{Banking:'N/A for banks — use NIM and NPA instead','Infra / Capital Goods':'Up to 1.5 acceptable for project-based infra'}},
+        {id:'p1_15',text:'Interest coverage ratio > 3x?',weight:2,hint:'EBIT / Interest expense. Higher = safer.'},
+        {id:'p1_16',text:'Current ratio > 1.5?',weight:1,hint:'Current assets / Current liabilities. > 1.5 = comfortable.'},
+        {id:'p1_17',text:'Cash position healthy — not burning reserves?',weight:1,hint:'Cash & equivalents trend over 3 years.'},
+        {id:'p1_33',text:'Working capital healthy — receivable days and inventory days stable or improving?',weight:2,hint:'Screener.in → Ratios → Debtor Days and Inventory Days. Rising = red flag.'},
+      ]},
+      { name:'1.5  Earnings Quality', items:[
+        {id:'p1_18',text:'Revenue growth consistent over 3-5 years?',weight:2,hint:'Screener.in → P&L → Sales row.'},
+        {id:'p1_19',text:'Profit growth backed by revenue growth — not just cost-cutting?',weight:2,hint:'Both should be growing together.'},
+        {id:'p1_20',text:'Receivables/inventory not growing faster than revenue?',weight:2,hint:'Faster growth = earnings quality issue.'},
+        {id:'p1_21',text:'Tax rate normal — not suspiciously low?',weight:1,hint:'Effective tax rate ~25% is normal.'},
+        {id:'p1_34',text:'Revenue not overly concentrated — top 3 customers < 30% of revenue?',weight:2,hint:'Annual report → revenue breakdown. High concentration = customer risk.'},
+      ]},
+      { name:'1.6  Return Metrics', items:[
+        {id:'p1_22',text:'ROE > 15% consistently over 5 years?',weight:2,hint:'Screener.in → Ratios → Return on Equity.',sector:{'Metals / Commodities':'Cyclical — check average through cycle','Infra / Capital Goods':'12%+ acceptable given long asset life'}},
+        {id:'p1_23',text:'ROCE > 15%?',weight:2,hint:'More relevant for capital-intensive businesses.'},
+        {id:'p1_24',text:'ROE improving without excessive leverage?',weight:1,hint:'ROE going up just because debt went up is not a good sign.'},
+      ]},
+      { name:'1.7  Cash Flow Analysis', items:[
+        {id:'p1_25',text:'Operating Cash Flow (OCF) > Net Profit consistently?',weight:3,hint:'Screener.in → Cash Flow. OCF > PAT = real earnings.'},
+        {id:'p1_26',text:'No sudden unexplained drops in OCF despite stable profits?',weight:1,hint:'Big gap = earnings manipulation risk.'},
+        {id:'p1_27',text:'Free Cash Flow positive in most years?',weight:3,hint:'FCF = OCF - Capex. Positive = self-funding business.',sector:{'Infra / Capital Goods':'Negative FCF during heavy capex phase is OK if OCF is positive and order book is strong'}},
+        {id:'p1_28',text:'If FCF negative — clearly due to expansion capex, not survival?',weight:1,hint:'FCF negative during growth = OK. FCF negative to survive = not OK.'},
+        {id:'p1_29',text:'Dividends paid from OCF — not funded by debt?',weight:1,hint:'Check if dividend > FCF. If yes, borrowing to pay dividends.'},
+      ]},
+    ],
+  },
+  { phase:2, name:'Valuation', target:30, color:'1A4731',
+    sections:[
+      { name:'2.1  Rough Cheapness Check', items:[
+        {id:'p2_1',text:'GEM Check: Actual EPS growth > Market implied growth?',weight:6,hint:'Run GEM analysis first, then mark based on verdict.'},
+        {id:'p2_2',text:'PE significantly below its own 5yr average?',weight:6,hint:'Screener.in → stock page → PE chart. Current vs historical average.'},
+        {id:'p2_3',text:'PEG Ratio < 1.5?',weight:5,hint:'PEG = PE / EPS Growth Rate. < 1.5 = not paying too much for growth.',sector:{'Banking / NBFC':'Use P/B < 1.5 instead of PEG','Metals / Commodities':'Use EV/EBITDA through cycle instead'}},
+        {id:'p2_4',text:'FCF Yield > 3% (FCF / Market Cap)?',weight:5,hint:'Trendlyne or Tijori Finance. > 3% = real cash being generated.'},
+        {id:'p2_5',text:'Not obviously expensive vs sector peers?',weight:5,hint:'Compare PE / EV-EBITDA with 2-3 direct competitors.'},
+      ]},
+      { name:'2.2  Sector-Specific Metric', items:[
+        {id:'p2_6',text:'Sector-specific valuation metric looks reasonable?',weight:3,hint:'Banking: P/B < 1.5 + NIM trend. IT: PEG < 1.5. Infra: EV/EBITDA + order book. Pharma: PE vs 5yr avg + pipeline. Metals: EV/EBITDA through cycle.'},
+      ]},
+      { name:'2.3  Growth Quality — Capital Efficiency', items:[
+        {id:'p2_7',text:'Is growth capital-light? Return on Capital Employed (ROCE) consistently above 20%?',weight:4,hint:'ROCE = Profit earned ÷ Total capital used to earn it. Two companies growing Earnings Per Share (EPS) at 20%. ROCE 25% = reinvests 60% of profits to fund growth, rest is free cash. ROCE 10% = needs to reinvest 150% of profits, forcing constant debt or equity dilution. Same EPS growth, completely different business quality. Screener.in → Ratios → ROCE row.'},
+        {id:'p2_8',text:'ROCE stable or improving as EPS (Earnings Per Share) grows?',weight:3,hint:'EPS growing + ROCE growing = genuine compounding. Business makes more money AND gets better at deploying capital. EPS growing + ROCE falling = warning sign — each new expansion earns less than the last. EPS growing + ROCE below 12% = dangerous. Profit on paper, wealth destruction in reality. Screener.in → 10-year data table → check both rows side by side.'},
+        {id:'p2_9',text:'ROCE meaningfully above cost of capital (above 15%)?',weight:3,hint:'Cost of capital is what the money costs the company — roughly 12% in India (blended cost of loan interest and shareholder return expectation). If ROCE > 15% = every rupee reinvested creates real wealth. If ROCE < 12% = growth destroys economic value even if EPS rises. Think of it like this: you open a second clinic earning ₹8 lakh/year but your loan costs ₹10 lakh/year. The clinic made money. You lost ₹2 lakh. That is ROCE below cost of capital. Screener.in → Ratios → ROCE. Aim for consistent 15%+.'},
+      ]},
+    ],
+  },
+  { phase:3, name:'Growth & Earnings', target:26, color:'3D2B00',
+    sections:[
+      { name:'3.1  Earnings Trend', items:[
+        {id:'p3_1',text:'TTM EPS trend improving?',weight:5,hint:'Screener.in → Quarters tab. Last 4 quarters EPS trend.'},
+        {id:'p3_2',text:'Revenue growth > 12-15% CAGR over 3 years?',weight:4,hint:'Screener.in → P&L → Sales row. Calculate 3yr CAGR.'},
+        {id:'p3_3',text:'PAT (profit after tax) growth consistent?',weight:4,hint:'Should track or exceed revenue growth.'},
+        {id:'p3_4',text:'Gross + operating margins stable or expanding?',weight:4,hint:'Screener.in → P&L → OPM % and GPM % rows.'},
+        {id:'p3_5',text:'OCF growing in line with or faster than revenue?',weight:4,hint:'OCF growing with revenue = real growth.'},
+      ]},
+      { name:'3.2  Forward Outlook', items:[
+        {id:'p3_6',text:'Sector in structural growth phase?',weight:3,hint:'Tailwinds — government policy, demographics, technology shifts.'},
+        {id:'p3_7',text:'Upcoming triggers: new product, capacity expansion, policy support?',weight:1,hint:'Any near-term catalyst that could unlock value.'},
+        {id:'p3_8',text:'Analyst consensus showing earnings upgrades?',weight:1,hint:'Trendlyne → Forecasts. Upgrades > downgrades = positive momentum. Mark N/A if no coverage.'},
+      ]},
+    ],
+  },
+  { phase:4, name:'Institutional Flow', target:20, color:'3B1F5E',
+    sections:[
+      { name:'4.1  Shareholding Pattern (Quarterly)', items:[
+        {id:'p4_1',text:'FII holdings increasing over last 2-3 quarters?',weight:5,hint:'Screener.in → Shareholding tab → FII trend.'},
+        {id:'p4_2',text:'DII holdings increasing or stable?',weight:3,hint:'Domestic institutions = mutual funds, insurance. Stable = OK.'},
+        {id:'p4_3',text:'Promoter holdings stable or increasing?',weight:5,hint:'Declining promoter holding is a red flag.'},
+        {id:'p4_4',text:'Retail holdings decreasing?',weight:3,hint:'Smart money replacing retail = positive.'},
+        {id:'p4_5',text:'Bulk/block deals by quality institutional buyers?',weight:2,hint:'BSE/NSE bulk deal data. Check who is buying.'},
+        {id:'p4_6',text:'Any recent insider buying?',weight:2,hint:'SAST disclosures on BSE. Management buying = strong conviction.'},
+      ]},
+    ],
+  },
+  { phase:5, name:'Market & Sector Context', target:15, color:'1A3A3A',
+    sections:[
+      { name:'5.1  Macro Environment', items:[
+        {id:'p5_1',text:'Nifty 50 above its 200 EMA?',weight:4,hint:'TradingView → NIFTY → weekly chart → 200 EMA. Mark N/A if long-term buy regardless of market cycle.'},
+        {id:'p5_2',text:'Interest rate environment not a headwind?',weight:2,hint:'Rising rates hurt NBFCs, real estate, infra. Mark N/A if sector is immune.',sector:{'Banking / NBFC':'Rising rates can actually help NIM — mark N/A or Yes accordingly'}},
+        {id:'p5_3',text:'INR stable?',weight:1,hint:'Important for IT exporters (weak INR = good) and oil/import-heavy companies (weak INR = bad). Mark N/A if neutral sector.'},
+        {id:'p5_4',text:'No major macro headwind visible?',weight:2,hint:'Judgment call. Global recession signals, commodity shock, geopolitical risk. Mark N/A if genuinely uncertain.'},
+      ]},
+      { name:'5.2  Sector Health', items:[
+        {id:'p5_5',text:'Sector index above its 50 EMA?',weight:3,hint:'TradingView → search sector index e.g. NIFTY PHARMA, NIFTY METAL → 50 EMA check.'},
+        {id:'p5_6',text:'Sector not facing regulatory headwinds?',weight:2,hint:'Pharma = FDA issues. Telecom = tariff uncertainty. Fin = RBI rules. Mark N/A if no active regulatory risk.'},
+        {id:'p5_7',text:'Stock outperforming Nifty over last 3 months?',weight:1,hint:'Compare % change vs Nifty. Underperformance could be an opportunity or a warning.'},
+      ]},
+    ],
+  },
+
+];
+
+// ── CHECKLIST STATE ───────────────────────────────────────────────
+const clState = {};
+const clHardStopState = {};
+CL_DATA.forEach(ph => ph.sections.forEach(s => s.items.forEach(it => { clState[it.id] = null; })));
+CL_HARD_STOPS.forEach(hs => { clHardStopState[hs.id] = null; });
+const phaseOpen = {1:true,2:false,3:false,4:false,5:false};
+let clHardStopTriggered = false;
+let clHardStopText = '';
+
+const PHASE_COLORS = {1:'#3B82F6',2:'#22C55E',3:'#F59E0B',4:'#A78BFA',5:'#2DD4BF'};
+
+// Minimum scored items (Yes or No) required for a valid verdict
+const CL_MIN_ANSWERED = 30;
+
+function getSelectedSector() {
+  const el = document.getElementById('cl-sector');
+  return el ? el.value : '';
+}
+
+function getSectorHint(item) {
+  if (!item.sector) return '';
+  const sector = getSelectedSector();
+  if (!sector) return '';
+  // Check for exact match or partial match
+  for (const [key, note] of Object.entries(item.sector)) {
+    if (sector.includes(key) || key.includes(sector)) {
+      return `<div style="margin-top:4px;padding:4px 8px;background:rgba(59,130,246,.12);border-radius:4px;font-size:10px;color:#93C5FD">📌 ${sector}: ${note}</div>`;
+    }
+  }
+  return '';
+}
+
+
+// ── SECTOR NOTES ─────────────────────────────────────────────────
+const SECTOR_NOTES = {
+  'Banking / NBFC': {
+    banner: '🏦 Banking / NBFC selected',
+    less_relevant: 'Debt/Equity (D/E), Free Cash Flow (FCF) Yield, Operating Cash Flow (OCF) vs Net Profit, and Working Capital items are not meaningful for banks — mark these N/A.',
+    focus: 'Focus instead on: Net Interest Margin (NIM — spread between lending and borrowing rates), Non-Performing Assets (NPA — bad loans as % of total loans), CASA ratio (Current Account Savings Account — cheap deposit mix), Provision Coverage Ratio (PCR — how much of bad loans are provided for), Return on Assets (ROA — profit as % of total assets). For valuation use Price-to-Book (P/B) ratio, not PE.',
+    color: '#1E3A5F'
+  },
+  'IT / Software': {
+    banner: '💻 IT / Software selected',
+    less_relevant: 'D/E and Working Capital items are less relevant — IT companies are naturally low-debt and asset-light.',
+    focus: 'Focus on: Revenue concentration (top 5 clients should not exceed 30% — single client risk), Employee attrition rate, Deal wins and Total Contract Value (TCV), Revenue in USD terms (weak INR benefits IT exporters), EBITDA margins (Earnings Before Interest Tax Depreciation Amortisation), Utilisation rates. For valuation PE and PEG are relevant but also check EV/EBITDA (Enterprise Value to EBITDA).',
+    color: '#1A4731'
+  },
+  'Pharma': {
+    banner: '💊 Pharma selected',
+    less_relevant: 'Standard FCF checks need context — R&D spend can suppress FCF temporarily.',
+    focus: 'Focus on: US FDA (Food and Drug Administration) facility status, ANDA (Abbreviated New Drug Application) pipeline, R&D spend as % of revenue (healthy at 5-8%), Domestic vs export revenue mix, Patent cliff exposure, USFDA inspection history. PE vs 5-year average is the primary valuation metric. High R&D spend compressing margins is not always a red flag.',
+    color: '#3D2B00'
+  },
+  'Healthcare / Hospitals': {
+    banner: '🏥 Healthcare / Hospitals selected',
+    less_relevant: 'Standard FCF checks need context — hospital capex cycles are long.',
+    focus: 'Focus on: Occupancy rates (70%+ is healthy), Average Revenue Per Occupied Bed (ARPOB), Payor mix (insurance vs cash vs government), Bed capacity utilisation, EBITDA margins (Earnings Before Interest Tax Depreciation Amortisation — 20%+ for quality hospitals). EV/EBITDA is the primary valuation metric (10-15x is reasonable). New bed additions take 3-5 years to turn profitable.',
+    color: '#1A3A3A'
+  },
+  'FMCG / Consumer': {
+    banner: '🛒 FMCG / Consumer selected',
+    less_relevant: 'D/E is rarely a concern — most FMCG companies are net cash.',
+    focus: 'Focus on: Volume growth vs value growth (volume growth is more sustainable than price-led growth), Market share trends, Distribution reach (number of outlets), Gross margins (premium FMCG should have 50%+ gross margins), Brand investment as % of revenue. PE and PEG are primary valuation metrics. Watch out for volume stagnation hidden by price hikes.',
+    color: '#3B1F5E'
+  },
+  'Auto & Ancillary': {
+    banner: '🚗 Auto & Ancillary selected',
+    less_relevant: 'FCF can be negative during new model launches — not automatically a red flag.',
+    focus: 'Focus on: Volume growth by segment (2W, PV, CV), Market share, Inventory at dealer level, New model pipeline, EV (Electric Vehicle) transition readiness, Raw material cost as % of revenue (steel, aluminium exposure). EV/EBITDA (Enterprise Value to EBITDA) is primary valuation metric. Automotive is cyclical — check where we are in the cycle.',
+    color: '#1E3A5F'
+  },
+  'Metals / Commodities': {
+    banner: '⚙️ Metals / Commodities selected',
+    less_relevant: 'PE ratio and EPS CAGR are misleading at commodity cycle peaks — earnings can collapse 60-80% in a downturn.',
+    focus: 'Focus on: EV/EBITDA (Enterprise Value to EBITDA) through the cycle average — not just current year, Debt levels at cycle peak (low debt = survives downturns), Cost position on the global cost curve (lower cost = more resilient), Capacity utilisation, Commodity price outlook. Never buy metals at peak earnings on low PE — that PE will not hold.',
+    color: '#3D2B00'
+  },
+  'Real Estate': {
+    banner: '🏢 Real Estate selected',
+    less_relevant: 'Standard OCF and FCF metrics are less meaningful — revenue is recognised on project completion, not cash collection.',
+    focus: 'Focus on: Pre-sales momentum (bookings value), Collections efficiency, Net Debt to Equity, Land bank quality and location, Execution track record (past project deliveries), Unsold inventory levels. Price-to-Book (P/B) and EV/EBITDA are primary metrics. Accounting in real estate is complex — cash flows matter more than reported profits.',
+    color: '#1A2E3D'
+  },
+  'Infra / Capital Goods': {
+    banner: '🏗️ Infra / Capital Goods selected',
+    less_relevant: 'Negative FCF during heavy order execution is normal — do not penalise this automatically.',
+    focus: 'Focus on: Order book as multiple of annual revenue (3x+ is healthy), Order inflow momentum, Working capital cycle (high WC in infra is normal but should be stable), EBITDA margins (Earnings Before Interest Tax Depreciation Amortisation), Execution track record, Government payment cycles. EV/EBITDA and EV/Order Book are primary metrics. D/E up to 1.5 is acceptable for project-based businesses.',
+    color: '#1A3A3A'
+  },
+  'Energy / Oil & Gas': {
+    banner: '⚡ Energy / Oil & Gas selected',
+    less_relevant: 'Standard EPS CAGR is distorted by commodity price cycles.',
+    focus: 'Focus on: FCF Yield (Free Cash Flow as % of Market Cap — 5%+ is attractive for mature energy companies), Dividend yield sustainability, Reserve replacement ratio (for E&P companies), Refining margins (GRM — Gross Refining Margin for refiners), Government pricing policy risk. EV/EBITDA is primary valuation metric.',
+    color: '#3D2B00'
+  },
+  'Telecom': {
+    banner: '📱 Telecom selected',
+    less_relevant: 'FCF and OCF checks are critical but need context — telecom is extremely capex-heavy by nature.',
+    focus: 'Focus on: ARPU (Average Revenue Per User — trend should be rising), Subscriber market share, 5G capex cycle and debt implications, EBITDA margins (Earnings Before Interest Tax Depreciation Amortisation), Debt levels (telecom is highly leveraged — check interest coverage carefully). EV/EBITDA is primary metric. High D/E is structural in telecom but debt trajectory matters.',
+    color: '#3B1F5E'
+  },
+  'Chemicals / Specialty Chemicals': {
+    banner: '🧪 Chemicals / Specialty Chemicals selected',
+    less_relevant: 'No major adjustments needed — this sector works well with the standard checklist.',
+    focus: 'Focus on: Capacity utilisation (75%+ is healthy), China+1 strategy beneficiary status, Customer concentration, R&D capability for specialty products, Gross margins (specialty chemicals should have 35%+ gross margins vs 15-20% for commodities), Export mix. PE vs 5-year average and EV/EBITDA are both relevant. Differentiate between commodity chemicals (avoid) and specialty chemicals (prefer).',
+    color: '#1A4731'
+  },
+  'Textiles / Apparel': {
+    banner: '👔 Textiles / Apparel selected',
+    less_relevant: 'FCF can be negative during capacity expansion — check if it is growth-driven.',
+    focus: 'Focus on: Export order book, PLI (Production Linked Incentive) scheme benefit, Cotton/yarn price exposure, Customer concentration (major retail brands), Brand vs commodity positioning. EV/EBITDA through cycle is primary metric. Textiles is highly cyclical — raw material prices and global demand both swing earnings significantly.',
+    color: '#3D1A1A'
+  },
+  'Media & Entertainment': {
+    banner: '🎬 Media & Entertainment selected',
+    less_relevant: 'Traditional FCF metrics are less relevant for subscription and content businesses.',
+    focus: 'Focus on: Subscriber count and growth rate, Daily Active Users (DAU) for digital platforms, Average Revenue Per User (ARPU), Content investment ROI (Return on Investment), Advertising revenue trend. Price/Sales (MC/Sales) ratio is primary metric for loss-making platforms. For profitable broadcasters, use EV/EBITDA.',
+    color: '#1A2E3D'
+  },
+  'Retail': {
+    banner: '🛍️ Retail selected',
+    less_relevant: 'Reported profits can be distorted by store expansion costs — look through to same-store metrics.',
+    focus: 'Focus on: Same-Store Sales Growth (SSSG — growth in stores open for 12+ months, strips out expansion effect), Gross margins, Inventory turnover, Store expansion payback period, Online vs offline mix. MC/Sales (Market Cap to Sales) and EV/EBITDA are primary metrics. New store openings inflate revenue but suppress margins initially — always check SSSG.',
+    color: '#3B1F5E'
+  },
+  'Early-stage / Turnaround': {
+    banner: '🚀 Early-stage / Turnaround selected',
+    less_relevant: 'PE, ROCE, ROE, and FCF items are mostly irrelevant — this company may be loss-making or just turning profitable.',
+    focus: 'Focus on: Revenue growth trajectory (is the top line growing fast?), Gross margins (is the core business model viable?), Cash runway (how many months of cash at current burn rate?), Path to profitability (is there a clear timeline?), Unit economics (is each unit/customer profitable?). MC/Sales (Market Cap to Sales) is primary metric. This is high-risk — position sizing must be smaller than usual.',
+    color: '#3D2B00'
+  },
+};
+
+function renderChecklistPhases() {
+  const container = document.getElementById('cl-phases');
+  if (!container) return;
+
+  // Check if hard stop already triggered
+  if (clHardStopTriggered) {
+    container.innerHTML = `
+      <div style="margin:12px 16px 0;padding:20px;background:var(--red-bg);border:2px solid var(--red-border);border-radius:var(--r);text-align:center">
+        <div style="font-size:32px;margin-bottom:8px">🚩</div>
+        <div style="font-size:16px;font-weight:700;color:var(--red);margin-bottom:6px">Hard Stop Triggered — Skip This Stock</div>
+        <div style="font-size:13px;color:#FCA5A5;margin-bottom:12px">${clHardStopText}</div>
+        <div style="font-size:12px;color:var(--text3)">Save your analysis to record this decision, or clear to start over.</div>
+      </div>`;
+    return;
+  }
+
+  // Sector banner
+  const selectedSector = getSelectedSector();
+  const sectorNote = selectedSector ? SECTOR_NOTES[selectedSector] : null;
+  const bannerHTML = sectorNote ? `
+    <div style="margin:12px 16px 0;padding:14px 16px;border-radius:var(--r);border:1px solid #${sectorNote.color.replace('#','')}33;background:#${sectorNote.color.replace('#','')}11">
+      <div style="font-size:13px;font-weight:600;color:${sectorNote.color};margin-bottom:6px">${sectorNote.banner}</div>
+      <div style="font-size:12px;color:var(--text3);line-height:1.7;margin-bottom:8px"><span style="color:#FCA5A5;font-weight:500">Less relevant: </span>${sectorNote.less_relevant}</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.7"><span style="color:#86EFAC;font-weight:500">Focus on: </span>${sectorNote.focus}</div>
+    </div>` : '';
+
+  container.innerHTML = bannerHTML + CL_DATA.map(ph => {
+    const hardStops = CL_HARD_STOPS.filter(hs => hs.phase === ph.phase);
+    const allItems  = ph.sections.flatMap(s => s.items);
+    const yesPts    = allItems.filter(it => clState[it.id]==='yes').reduce((s,it)=>s+it.weight,0);
+    const naPts     = allItems.filter(it => clState[it.id]==='na').reduce((s,it)=>s+it.weight,0);
+    const adjMax    = allItems.reduce((s,it)=>s+it.weight,0) - naPts;
+    const isOpen    = phaseOpen[ph.phase];
+
+    const hardStopHTML = hardStops.length > 0 ? `
+      <div style="padding:10px 16px 0;background:rgba(239,68,68,.04)">
+        <div style="font-size:11px;font-weight:600;color:var(--red);letter-spacing:.4px;margin-bottom:6px;padding-top:4px">🚩 HARD STOPS — answer Yes if the bad condition is present</div>
+        ${hardStops.map(hs => `
+          <div class="cl-item ${clHardStopState[hs.id]==='yes'?'answered-no':clHardStopState[hs.id]==='no'?'answered-yes':''}" id="clhs-${hs.id}" style="border-left:3px solid var(--red-border);margin-bottom:6px;border-radius:6px;background:rgba(239,68,68,.04)">
+            <div class="cl-item-content">
+              <div class="cl-item-text" style="color:#FCA5A5">${hs.text}</div>
+              <div class="cl-item-hint">${hs.hint}</div>
+            </div>
+            <div class="cl-btns">
+              <button class="cl-btn ${clHardStopState[hs.id]==='yes'?'active-no':''}" style="${clHardStopState[hs.id]==='yes'?'':'border-color:var(--red-border)'}" onclick="setHardStopCL('${hs.id}','yes')">Yes ⚠</button>
+              <button class="cl-btn ${clHardStopState[hs.id]==='no'?'active-yes':''}" onclick="setHardStopCL('${hs.id}','no')">No ✓</button>
+            </div>
+          </div>`).join('')}
+      </div>` : '';
+
+    const itemsHTML = ph.sections.map(sec => `
+      <div class="cl-section-hdr">${sec.name}</div>
+      ${sec.items.map(it => `
+        <div class="cl-item ${clState[it.id]?'answered-'+clState[it.id]:''}" id="cli-${it.id}">
+          <div class="cl-item-content">
+            <div class="cl-item-text">${it.text}</div>
+            <div class="cl-item-hint">${it.hint}</div>
+            ${getSectorHint(it)}
+            <div class="cl-item-wt">${it.weight>0?it.weight+' pt'+(it.weight!==1?'s':''):'Reference only'}</div>
+          </div>
+          <div class="cl-btns">
+            <button class="cl-btn ${clState[it.id]==='yes'?'active-yes':''}" onclick="setCL('${it.id}','yes')">Yes</button>
+            <button class="cl-btn ${clState[it.id]==='no'?'active-no':''}" onclick="setCL('${it.id}','no')">No</button>
+            <button class="cl-btn ${clState[it.id]==='na'?'active-na':''}" onclick="setCL('${it.id}','na')">N/A</button>
+          </div>
+        </div>`).join('')}`).join('');
+
+    return `
+    <div class="phase-card">
+      <div class="phase-header" onclick="togglePhase(${ph.phase})">
+        <div class="phase-title" style="color:${PHASE_COLORS[ph.phase]}">Phase ${ph.phase} — ${ph.name}</div>
+        <div class="phase-meta">
+          <span class="phase-pts" id="phase-pts-${ph.phase}">${yesPts}/${adjMax}</span>
+          <span class="phase-chevron" id="phase-chev-${ph.phase}" style="transform:rotate(${isOpen?90:0}deg)">›</span>
+        </div>
+      </div>
+      <div class="phase-body" id="phase-body-${ph.phase}" style="display:${isOpen?'block':'none'}">
+        ${hardStopHTML}${itemsHTML}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setHardStopCL(id, val) {
+  clHardStopState[id] = val;
+  if (val === 'yes') {
+    // Trigger auto-shut
+    const hs = CL_HARD_STOPS.find(h => h.id === id);
+    clHardStopTriggered = true;
+    clHardStopText = hs ? hs.text.replace('?','') + ' — this is a hard reject condition.' : 'Hard stop condition present.';
+    // Update score bar
+    const card = document.getElementById('cl-score-bar');
+    if (card) card.className = 'verdict-card red';
+    const vt = document.getElementById('cl-verdict-text');
+    if (vt) vt.textContent = '🚩 Hard Stop — Skip This Stock';
+    // Re-render phases to show shutdown
+    renderChecklistPhases();
+  } else {
+    // Check if any other hard stop still triggered
+    clHardStopTriggered = Object.values(clHardStopState).some(v => v === 'yes');
+    if (!clHardStopTriggered) clHardStopText = '';
+    renderChecklistPhases();
+    updateCLScore();
+  }
+}
+
+function togglePhase(n) {
+  phaseOpen[n] = !phaseOpen[n];
+  const body = document.getElementById('phase-body-'+n);
+  const chev = document.getElementById('phase-chev-'+n);
+  if(body) body.style.display = phaseOpen[n]?'block':'none';
+  if(chev) chev.style.transform = 'rotate('+(phaseOpen[n]?90:0)+'deg)';
+}
+
+function setCL(id, val) {
+  clState[id] = val;
+  const row = document.getElementById('cli-'+id);
+  if(row){
+    row.className = 'cl-item answered-'+val;
+    row.querySelectorAll('.cl-btn').forEach((b,i)=>{
+      b.className = 'cl-btn'+(i===0&&val==='yes'?' active-yes':i===1&&val==='no'?' active-no':i===2&&val==='na'?' active-na':'');
+    });
+  }
+  updateCLScore();
+  // Update phase score
+  CL_DATA.forEach(ph=>{
+    const allItems = ph.sections.flatMap(s=>s.items);
+    if(!allItems.find(it=>it.id===id)) return;
+    const yesPts = allItems.filter(it=>clState[it.id]==='yes').reduce((s,it)=>s+it.weight,0);
+    const naPts  = allItems.filter(it=>clState[it.id]==='na').reduce((s,it)=>s+it.weight,0);
+    const adjMax = allItems.reduce((s,it)=>s+it.weight,0) - naPts;
+    const el = document.getElementById('phase-pts-'+ph.phase);
+    if(el) el.textContent = yesPts+'/'+adjMax;
+  });
+}
+
+function updateCLScore() {
+  if (clHardStopTriggered) return;
+  const allItems  = CL_DATA.flatMap(ph=>ph.sections.flatMap(s=>s.items));
+  const scoredItems = allItems.filter(it => clState[it.id]==='yes' || clState[it.id]==='no');
+  const yesPts    = allItems.filter(it=>clState[it.id]==='yes').reduce((s,it)=>s+it.weight,0);
+  const naPts     = allItems.filter(it=>clState[it.id]==='na').reduce((s,it)=>s+it.weight,0);
+  const maxPts    = allItems.reduce((s,it)=>s+it.weight,0) - naPts;
+  const pct       = maxPts>0?yesPts/maxPts:0;
+  const answeredCount = scoredItems.length;
+
+  const card = document.getElementById('cl-score-bar');
+  const bar  = document.getElementById('cl-progress-bar');
+  if(!card||!bar) return;
+  document.getElementById('cl-score-text').textContent = yesPts+' / '+maxPts+' pts';
+  bar.style.width = (pct*100).toFixed(0)+'%';
+
+  if (answeredCount < CL_MIN_ANSWERED) {
+    card.className = 'verdict-card neutral';
+    document.getElementById('cl-verdict-text').textContent = `Answer ${CL_MIN_ANSWERED - answeredCount} more items for verdict`;
+    bar.style.background = 'var(--accent)';
+  } else if(pct>=0.8){
+    card.className='verdict-card green';
+    document.getElementById('cl-verdict-text').textContent='🟢 High Conviction — Full Position';
+    bar.style.background='var(--green)';
+  } else if(pct>=0.6){
+    card.className='verdict-card yellow';
+    document.getElementById('cl-verdict-text').textContent='🟡 Medium Conviction — Half Position';
+    bar.style.background='var(--yellow)';
+  } else {
+    card.className='verdict-card red';
+    document.getElementById('cl-verdict-text').textContent='🔴 Low Conviction — Avoid';
+    bar.style.background='var(--red)';
+  }
+}
+
+let currentResumeId = null; // tracks if we're resuming a saved analysis
+
+function resumeChecklist(a) {
+  // Restore all state from saved analysis
+  currentResumeId = a.id;
+
+  // Restore hard stop state
+  if (a.hardStops) {
+    Object.keys(a.hardStops).forEach(id => { clHardStopState[id] = a.hardStops[id]; });
+  }
+
+  // Restore scored items
+  if (a.scores) {
+    Object.keys(a.scores).forEach(id => { clState[id] = a.scores[id]; });
+  }
+
+  // Check if any hard stop triggered
+  clHardStopTriggered = Object.values(clHardStopState).some(v => v === 'yes');
+  if (clHardStopTriggered) {
+    const triggeredHs = CL_HARD_STOPS.find(hs => clHardStopState[hs.id] === 'yes');
+    clHardStopText = triggeredHs ? triggeredHs.text.replace('?','') + ' — hard reject condition.' : 'Hard stop triggered.';
+  }
+
+  // Navigate to checklist and populate fields
+  navigate('checklist');
+  setTimeout(() => {
+    const stock = document.getElementById('cl-stock');
+    const date  = document.getElementById('cl-date');
+    const sector = document.getElementById('cl-sector');
+    const biz   = document.getElementById('cl-biz-model');
+    const risk  = document.getElementById('cl-biz-risk');
+    const notes = document.getElementById('cl-notes');
+    if (stock)  stock.value  = a.stock || '';
+    if (date)   date.value   = a.date  || todayStr();
+    if (sector) sector.value = a.sector || '';
+    if (biz)    biz.value    = a.bizModel || '';
+    if (risk)   risk.value   = a.bizRisk  || '';
+    if (notes)  notes.value  = a.notes    || '';
+    renderChecklistPhases();
+    updateCLScore();
+  }, 50);
+}
+
+async function saveChecklist() {
+  const stock = document.getElementById('cl-stock').value.trim().toUpperCase();
+  const date  = document.getElementById('cl-date').value;
+  if(!stock){showToast('Enter a stock name first');return;}
+  const allItems = CL_DATA.flatMap(ph=>ph.sections.flatMap(s=>s.items));
+  const yesPts = allItems.filter(it=>clState[it.id]==='yes').reduce((s,it)=>s+it.weight,0);
+  const naPts  = allItems.filter(it=>clState[it.id]==='na').reduce((s,it)=>s+it.weight,0);
+  const maxPts = allItems.reduce((s,it)=>s+it.weight,0)-naPts;
+  const pct    = maxPts>0?yesPts/maxPts:0;
+  let verdictKey,verdictLabel;
+  if(clHardStopTriggered){verdictKey='red';verdictLabel='Hard Stop — Skip';}
+  else if(pct>=0.8){verdictKey='green';verdictLabel='High Conviction';}
+  else if(pct>=0.6){verdictKey='yellow';verdictLabel='Medium Conviction';}
+  else{verdictKey='red';verdictLabel='Low Conviction';}
+  await Store.saveAnalysis({
+    stock,date,framework:'Checklist',
+    sector:document.getElementById('cl-sector').value,
+    bizModel:document.getElementById('cl-biz-model').value.trim(),
+    bizRisk:document.getElementById('cl-biz-risk').value.trim(),
+    scores:{...clState},hardStops:{...clHardStopState},
+    hardStopTriggered:clHardStopTriggered,
+    yesPts,maxPts,verdictKey,verdictLabel,
+    notes:document.getElementById('cl-notes').value.trim()
+  });
+  // If resuming, delete the old partial save
+  if (currentResumeId) {
+    await Store.deleteAnalysis(currentResumeId);
+    currentResumeId = null;
+  }
+  showToast('Checklist saved');
+  updateBadge();
+  resetChecklist();
+  setTimeout(()=>navigate('saved'),600);
+}
+
+function resetChecklist() {
+  currentResumeId = null;
+  Object.keys(clState).forEach(k=>clState[k]=null);
+  Object.keys(clHardStopState).forEach(k=>clHardStopState[k]=null);
+  Object.keys(phaseOpen).forEach(k=>phaseOpen[k]=k==='1');
+  clHardStopTriggered=false; clHardStopText='';
+  ['cl-stock','cl-biz-model','cl-biz-risk','cl-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const dt=document.getElementById('cl-date');if(dt)dt.value=todayStr();
+  const sc=document.getElementById('cl-sector');if(sc)sc.value='';
+  renderChecklistPhases();
+  updateCLScore();
+}
+
 
 // ── GEM CALCULATOR ────────────────────────────────────────────────
 function calcGEM() {
@@ -1301,7 +2251,7 @@ function updateVerdict(gap, actual, implied) {
 function fmt(n) { return (n * 100).toFixed(1) + '%'; }
 function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
 
-function saveAnalysis() {
+async function saveAnalysis() {
   const stock = document.getElementById('gem-stock').value.trim().toUpperCase();
   const date = document.getElementById('gem-date').value;
 
@@ -1331,7 +2281,7 @@ function saveAnalysis() {
     else { verdictKey = 'yellow'; verdictLabel = 'Fairly Valued'; }
   }
 
-  Store.saveAnalysis({
+  await Store.saveAnalysis({
     stock, date, framework: 'GEM',
     oldEPS, newEPS, years, haircut,
     override: overrideRaw ? parseFloat(overrideRaw) : null,
@@ -1375,22 +2325,22 @@ function closeModalDirect() {
   document.getElementById('modal-overlay').classList.remove('open');
 }
 
-function addToWatchlist() {
+async function addToWatchlist() {
   const name = document.getElementById('modal-stock').value.trim().toUpperCase();
   if (!name) { showToast('Enter a stock name'); return; }
   const list = Store.getWatchlist();
   if (list.find(s => s.name === name)) { showToast('Already in watchlist'); return; }
   list.push({ name, note: document.getElementById('modal-note').value.trim(), added: todayStr() });
-  Store.set('watch', list);
+  await Store.set('watch', list);
   closeModalDirect();
   renderWatchlist();
   showToast('Added ' + name);
 }
 
-function removeFromWatchlist(name) {
+async function removeFromWatchlist(name) {
   if (!confirm('Remove ' + name + ' from watchlist?')) return;
   const list = Store.getWatchlist().filter(s => s.name !== name);
-  Store.set('watch', list);
+  await Store.set('watch', list);
   renderWatchlist();
 }
 
@@ -1459,15 +2409,56 @@ function renderSaved() {
     return;
   }
 
-  container.innerHTML = filtered.map(a => `
-    <div class="analysis-item" onclick="openDetail(${a.id})">
-      <div class="verdict-dot ${a.verdictKey}"></div>
-      <div class="analysis-info">
-        <div class="analysis-name">${a.stock}</div>
-        <div class="analysis-meta">${a.framework} · ${formatDate(a.date)}</div>
-      </div>
-      <div class="analysis-verdict ${a.verdictKey}">${a.verdictLabel || '—'}</div>
-    </div>`).join('');
+  // Group by stock name
+  const grouped = {};
+  filtered.forEach(a => {
+    if (!grouped[a.stock]) grouped[a.stock] = [];
+    grouped[a.stock].push(a);
+  });
+
+  // Sort stocks alphabetically
+  const stocks = Object.keys(grouped).sort();
+
+  container.innerHTML = stocks.map(stock => {
+    const analyses = grouped[stock].sort((a, b) => b.id - a.id);
+    const latest = analyses[0];
+
+    // Stock header avatar letters
+    const initials = stock.slice(0, 3);
+
+    // Framework rows
+    const rows = analyses.map(a => {
+      const fwIcon = a.framework === 'GEM' ? '💎' : a.framework === 'Triage' ? '⚡' : '📋';
+      const dotColor = a.verdictKey === 'green' ? 'var(--green)' : a.verdictKey === 'red' ? 'var(--red)' : a.verdictKey === 'yellow' ? 'var(--yellow)' : 'var(--text3)';
+      return `
+        <div class="saved-fw-row" onclick="openDetail(${a.id})">
+          <span class="saved-fw-icon">${fwIcon}</span>
+          <div class="saved-fw-info">
+            <span class="saved-fw-name">${a.framework}</span>
+            <span class="saved-fw-date">${formatDate(a.date)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="saved-fw-verdict" style="color:${dotColor}">${a.verdictLabel || '—'}</span>
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--text3);flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/></svg>
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="saved-stock-group">
+        <div class="saved-stock-header">
+          <div class="stock-avatar">${initials}</div>
+          <div class="saved-stock-meta">
+            <div class="saved-stock-name">${stock}</div>
+            <div class="saved-stock-count">${analyses.length} analysis${analyses.length > 1 ? 'es' : ''}</div>
+          </div>
+          <div class="saved-stock-badge">
+            <span style="color:${latest.verdictKey==='green'?'var(--green)':latest.verdictKey==='red'?'var(--red)':'var(--yellow)'}">${latest.verdictKey==='green'?'🟢':latest.verdictKey==='red'?'🔴':'🟡'}</span>
+          </div>
+        </div>
+        <div class="saved-fw-list">${rows}</div>
+      </div>`;
+  }).join('');
 }
 
 function openDetail(id) {
@@ -1480,7 +2471,7 @@ function openDetail(id) {
   const vClass = a.verdictKey || 'neutral';
   let detailBody = '';
   if (a.framework === 'Triage') {
-    const hsRows = ['hs1','hs2','hs3'].map(id => {
+    const hsRows = ['hs1','hs2'].map(id => {
       const v = (a.hardStops||{})[id];
       const color = v==='yes'?'var(--green)':v==='no'?'var(--red)':'var(--text3)';
       const icon  = v==='yes'?'✓':v==='no'?'✗':'—';
@@ -1492,6 +2483,22 @@ function openDetail(id) {
       return `<div class="detail-row"><span class="detail-key">${TRIAGE_LABELS[id]||id}</span><span class="detail-val" style="color:${color}">${icon}</span></div>`;
     }).join('');
     detailBody = `<p class="section-label">Hard Stops</p><div class="card" style="padding:0 16px">${hsRows}</div><p class="section-label">Scored Items · ${a.yesCount} / ${a.totalScored}</p><div class="card" style="padding:0 16px">${scoreRows}</div>`;
+  } else if (a.framework === 'Checklist') {
+    const phaseRows = CL_DATA.map(ph => {
+      const items = ph.sections.flatMap(s => s.items);
+      const yesPts = items.filter(it => (a.scores||{})[it.id]==='yes').reduce((s,it)=>s+it.weight,0);
+      const naPts  = items.filter(it => (a.scores||{})[it.id]==='na').reduce((s,it)=>s+it.weight,0);
+      const adjMax = items.reduce((s,it)=>s+it.weight,0) - naPts;
+      return `<div class="detail-row"><span class="detail-key">Phase ${ph.phase} — ${ph.name}</span><span class="detail-val">${yesPts}/${adjMax}</span></div>`;
+    }).join('');
+    detailBody = `
+      ${a.bizModel ? `<p class="section-label">Business Model</p><div class="card"><p style="font-size:13px;color:var(--text2);line-height:1.6">${a.bizModel}</p></div>` : ''}
+      ${a.bizRisk  ? `<p class="section-label">Main Risk</p><div class="card"><p style="font-size:13px;color:var(--text2);line-height:1.6">${a.bizRisk}</p></div>` : ''}
+      <p class="section-label">Phase Scores · ${a.yesPts} / ${a.maxPts} total</p>
+      <div class="card" style="padding:0 16px">${phaseRows}</div>
+      <div style="margin:12px 16px 0">
+        <button class="btn btn-primary" onclick="resumeChecklist(Store.getAnalyses().find(x=>x.id===${a.id}))">↩ Resume & Continue Analysis</button>
+      </div>`;
   } else {
     const rows = [
       ['Oldest EPS', a.oldEPS ? '₹' + a.oldEPS : '—'],
@@ -1513,6 +2520,7 @@ function openDetail(id) {
       <span class="verdict-label">${a.framework} Verdict</span>
       <span class="verdict-text">${vClass==='green'?'🟢':vClass==='red'?'🔴':'🟡'} ${a.verdictLabel}</span>
       ${a.framework==='Triage'?`<span class="verdict-detail">${a.yesCount} / ${a.totalScored} scored items passing</span>`:
+        a.framework==='Checklist'?`<span class="verdict-detail">${a.yesPts} / ${a.maxPts} pts · ${((a.yesPts/a.maxPts)*100).toFixed(0)}%</span>`:
         a.gap!=null?`<span class="verdict-detail">Gap: ${(a.gap>0?'+':'')+fmt(a.gap)} · Implied: ${fmt(a.implied)} · Actual: ${fmt(a.effGrowth)}</span>`:''}
     </div>
     ${detailBody}
@@ -1527,9 +2535,9 @@ function openDetail(id) {
   document.getElementById('screen-detail').scrollTop = 0;
 }
 
-function deleteCurrentAnalysis() {
+async function deleteCurrentAnalysis() {
   if (!confirm('Delete this analysis? This cannot be undone.')) return;
-  Store.deleteAnalysis(currentDetailId);
+  await Store.deleteAnalysis(currentDetailId);
   updateBadge();
   showToast('Analysis deleted');
   navigate('saved');
@@ -1561,18 +2569,86 @@ function updateBadge() {
 }
 
 // ── INIT ─────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  initTheme();
   document.getElementById('gem-date').value = todayStr();
   document.getElementById('tr-date').value  = todayStr();
-  renderWatchlist();
-  updateBadge();
 
-  // Service worker disabled
+  try {
+    if (typeof supabase === 'undefined') throw new Error('CDN not loaded');
+    supa = supabase.createClient(SUPA_URL, SUPA_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+        storage: window.localStorage,
+        storageKey: 'stocklens-auth'
+      }
+    });
+  } catch(e) {
+    showLoginScreen();
+    showAuthError('Load error — refresh the page');
+    return;
+  }
 
+  const { data: { session } } = await supa.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await Store.pullFromCloud();
+    showApp();
+  } else {
+    // Try restoring from manual backup
+    const saved = localStorage.getItem('stocklens-auth-token');
+    if (saved) {
+      try {
+        const tokens = JSON.parse(saved);
+        const { data, error } = await supa.auth.setSession(tokens);
+        if (data?.session) {
+          currentUser = data.session.user;
+          await Store.pullFromCloud();
+          showApp();
+          return;
+        }
+      } catch(e) {}
+    }
+    showLoginScreen();
+  }
 
-  // Close modal on keyboard dismiss
+  supa.auth.onAuthStateChange(async (event, session) => {
+    if (session && !currentUser) {
+      currentUser = session.user;
+      await Store.pullFromCloud();
+      showApp();
+    } else if (!session && currentUser) {
+      currentUser = null;
+      showLoginScreen();
+    }
+  });
+
+  // Real-time sync — changes from other devices
+  supa.channel('analyses-sync')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'analyses' }, async () => {
+      if (!currentUser) return;
+      await Store.pullFromCloud();
+      renderSaved();
+      updateBadge();
+    })
+    .subscribe();
+
+  // Also pull when tab becomes visible (switching back from another app)
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && currentUser) {
+      await Store.pullFromCloud();
+      renderSaved();
+      renderWatchlist();
+      updateBadge();
+    }
+  });
+
+  renderChecklistPhases();
   document.getElementById('modal-overlay').addEventListener('click', closeModal);
 });
+
 </script>
 </body>
 </html>

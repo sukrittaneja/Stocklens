@@ -4,14 +4,21 @@
   "description": "Personal stock analysis using GEM reverse-DCF framework",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0D1117",
-  "theme_color": "#0D1117",
+  "background_color": "#F7F4F0",
+  "theme_color": "#6B9E8F",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%230D1117'/><text x='96' y='130' text-anchor='middle' font-size='100'>💎</text></svg>",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
