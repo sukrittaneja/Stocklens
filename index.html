@@ -1637,8 +1637,7 @@ const CL_HARD_STOPS = [
   // Phase 4
   {id:'hs4_1', phase:4, text:'FII and DII both reducing simultaneously?', hint:'When both are selling, it is a strong institutional exit signal.'},
   {id:'hs4_2', phase:4, text:'Promoter selling aggressively (>2% in last 2 quarters)?', hint:'Screener.in → Shareholding. Promoter knows the business best.'},
-  // Phase 6
-  {id:'hs6_1', phase:6, text:'Death Cross active (50 EMA below 200 EMA)?', hint:'TradingView → daily chart. Death Cross = confirmed downtrend. Wait.'},
+
 ];
 
 const CL_DATA = [
@@ -1756,25 +1755,7 @@ const CL_DATA = [
       ]},
     ],
   },
-  { phase:6, name:'Technical Chart', target:10, color:'3D1A1A',
-    sections:[
-      { name:'6.1  Trend Check', items:[
-        {id:'p6_1',text:'Weekly price above 200 EMA?',weight:2,hint:'TradingView → weekly chart → add 200 EMA indicator.'},
-        {id:'p6_2',text:'Daily 50 EMA sloping upward?',weight:1,hint:'Daily chart → 50 EMA → is it pointing up?'},
-        {id:'p6_3',text:'Golden Cross present (50 EMA > 200 EMA)?',weight:1,hint:'Bullish signal. 50 EMA above 200 EMA on daily chart.'},
-        {id:'p6_4',text:'No Death Cross active?',weight:2,hint:'50 EMA below 200 EMA = bearish. If present, wait.'},
-      ]},
-      { name:'6.2  Support & Resistance', items:[
-        {id:'p6_5',text:'Price near a well-defined support zone?',weight:2,hint:'Not at resistance. Buying near support = better risk/reward.'},
-        {id:'p6_6',text:'Support zone aligns with an EMA?',weight:1,hint:'EMA acting as support = stronger confirmation.'},
-        {id:'p6_7',text:'Fibonacci level (0.382/0.5/0.618) near support?',weight:0,hint:'Reference only — 0 weight. Confluence signal, not standalone.'},
-      ]},
-      { name:'6.3  Momentum', items:[
-        {id:'p6_8',text:'RSI in 40-60 range at entry?',weight:1,hint:'Not overbought (>70) or oversold (<30). Sweet spot is 45-60.'},
-        {id:'p6_9',text:'OBV flat or rising — no distribution?',weight:1,hint:'TradingView → OBV indicator. Rising OBV = buying volume.'},
-      ]},
-    ],
-  },
+
 ];
 
 // ── CHECKLIST STATE ───────────────────────────────────────────────
@@ -1782,11 +1763,11 @@ const clState = {};
 const clHardStopState = {};
 CL_DATA.forEach(ph => ph.sections.forEach(s => s.items.forEach(it => { clState[it.id] = null; })));
 CL_HARD_STOPS.forEach(hs => { clHardStopState[hs.id] = null; });
-const phaseOpen = {1:true,2:false,3:false,4:false,5:false,6:false};
+const phaseOpen = {1:true,2:false,3:false,4:false,5:false};
 let clHardStopTriggered = false;
 let clHardStopText = '';
 
-const PHASE_COLORS = {1:'#3B82F6',2:'#22C55E',3:'#F59E0B',4:'#A78BFA',5:'#2DD4BF',6:'#F87171'};
+const PHASE_COLORS = {1:'#3B82F6',2:'#22C55E',3:'#F59E0B',4:'#A78BFA',5:'#2DD4BF'};
 
 // Minimum scored items (Yes or No) required for a valid verdict
 const CL_MIN_ANSWERED = 30;
