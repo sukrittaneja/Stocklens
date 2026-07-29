@@ -2036,6 +2036,49 @@ function updateCLScore() {
   }
 }
 
+let currentResumeId = null; // tracks if we're resuming a saved analysis
+
+function resumeChecklist(a) {
+  // Restore all state from saved analysis
+  currentResumeId = a.id;
+
+  // Restore hard stop state
+  if (a.hardStops) {
+    Object.keys(a.hardStops).forEach(id => { clHardStopState[id] = a.hardStops[id]; });
+  }
+
+  // Restore scored items
+  if (a.scores) {
+    Object.keys(a.scores).forEach(id => { clState[id] = a.scores[id]; });
+  }
+
+  // Check if any hard stop triggered
+  clHardStopTriggered = Object.values(clHardStopState).some(v => v === 'yes');
+  if (clHardStopTriggered) {
+    const triggeredHs = CL_HARD_STOPS.find(hs => clHardStopState[hs.id] === 'yes');
+    clHardStopText = triggeredHs ? triggeredHs.text.replace('?','') + ' — hard reject condition.' : 'Hard stop triggered.';
+  }
+
+  // Navigate to checklist and populate fields
+  navigate('checklist');
+  setTimeout(() => {
+    const stock = document.getElementById('cl-stock');
+    const date  = document.getElementById('cl-date');
+    const sector = document.getElementById('cl-sector');
+    const biz   = document.getElementById('cl-biz-model');
+    const risk  = document.getElementById('cl-biz-risk');
+    const notes = document.getElementById('cl-notes');
+    if (stock)  stock.value  = a.stock || '';
+    if (date)   date.value   = a.date  || todayStr();
+    if (sector) sector.value = a.sector || '';
+    if (biz)    biz.value    = a.bizModel || '';
+    if (risk)   risk.value   = a.bizRisk  || '';
+    if (notes)  notes.value  = a.notes    || '';
+    renderChecklistPhases();
+    updateCLScore();
+  }, 50);
+}
+
 async function saveChecklist() {
   const stock = document.getElementById('cl-stock').value.trim().toUpperCase();
   const date  = document.getElementById('cl-date').value;
@@ -2060,6 +2103,11 @@ async function saveChecklist() {
     yesPts,maxPts,verdictKey,verdictLabel,
     notes:document.getElementById('cl-notes').value.trim()
   });
+  // If resuming, delete the old partial save
+  if (currentResumeId) {
+    await Store.deleteAnalysis(currentResumeId);
+    currentResumeId = null;
+  }
   showToast('Checklist saved');
   updateBadge();
   resetChecklist();
@@ -2067,6 +2115,7 @@ async function saveChecklist() {
 }
 
 function resetChecklist() {
+  currentResumeId = null;
   Object.keys(clState).forEach(k=>clState[k]=null);
   Object.keys(clHardStopState).forEach(k=>clHardStopState[k]=null);
   Object.keys(phaseOpen).forEach(k=>phaseOpen[k]=k==='1');
@@ -2419,7 +2468,10 @@ function openDetail(id) {
       ${a.bizModel ? `<p class="section-label">Business Model</p><div class="card"><p style="font-size:13px;color:var(--text2);line-height:1.6">${a.bizModel}</p></div>` : ''}
       ${a.bizRisk  ? `<p class="section-label">Main Risk</p><div class="card"><p style="font-size:13px;color:var(--text2);line-height:1.6">${a.bizRisk}</p></div>` : ''}
       <p class="section-label">Phase Scores · ${a.yesPts} / ${a.maxPts} total</p>
-      <div class="card" style="padding:0 16px">${phaseRows}</div>`;
+      <div class="card" style="padding:0 16px">${phaseRows}</div>
+      <div style="margin:12px 16px 0">
+        <button class="btn btn-primary" onclick="resumeChecklist(Store.getAnalyses().find(x=>x.id===${a.id}))">↩ Resume & Continue Analysis</button>
+      </div>`;
   } else {
     const rows = [
       ['Oldest EPS', a.oldEPS ? '₹' + a.oldEPS : '—'],
