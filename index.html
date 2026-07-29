@@ -12,7 +12,35 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+/* ── LIGHT THEME (default) ── */
 :root{
+  --bg:#F7F4F0;
+  --surface:#FFFFFF;
+  --surface2:#F0EDE8;
+  --border:#E2DDD7;
+  --border2:#CEC8C0;
+  --text:#1C1917;
+  --text2:#44403C;
+  --text3:#78716C;
+  --accent:#6B9E8F;
+  --accent-dim:#4A7E70;
+  --green:#3D7A56;
+  --green-bg:#EAF4EE;
+  --green-border:#A8D4B8;
+  --yellow:#9A7A2A;
+  --yellow-bg:#FDF5E0;
+  --yellow-border:#D4B86A;
+  --red:#B85450;
+  --red-bg:#FAEDED;
+  --red-border:#E8B4B0;
+  --amber:#9A7A2A;
+  --r:14px;
+  --r-sm:10px;
+  --nav-h:64px;
+}
+
+/* ── DARK THEME ── */
+body.dark{
   --bg:#0D1117;
   --surface:#161B22;
   --surface2:#21262D;
@@ -33,9 +61,6 @@
   --red-bg:#2A0F0F;
   --red-border:#991B1B;
   --amber:#F59E0B;
-  --r:12px;
-  --r-sm:8px;
-  --nav-h:64px;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;line-height:1.5}
 .mono{font-family:'DM Mono',monospace}
@@ -433,7 +458,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         <h1>💎 StockLens</h1>
         <p>Your personal GEM analyser</p>
       </div>
-
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="theme-toggle" onclick="toggleTheme()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center" title="Toggle theme">🌙</button>
+        <button onclick="signOut()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text3);font-size:12px;padding:6px 12px;border-radius:var(--r-sm);cursor:pointer;font-family:inherit">Sign out</button>
+      </div>
     </div>
     <div id="review-banner" class="review-banner" style="display:none">
       <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
@@ -1088,6 +1116,23 @@ function getImpliedGrowth(pe) {
     else break;
   }
   return res;
+}
+
+// ── THEME ─────────────────────────────────────────────────────────
+function toggleTheme() {
+  const isDark = document.body.classList.toggle('dark');
+  localStorage.setItem('sl-theme', isDark ? 'dark' : 'light');
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = isDark ? '☀️' : '🌙';
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('sl-theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const useDark = saved ? saved === 'dark' : prefersDark;
+  if (useDark) document.body.classList.add('dark');
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = useDark ? '☀️' : '🌙';
 }
 
 // ── SUPABASE ──────────────────────────────────────────────────────
@@ -2543,6 +2588,7 @@ function updateBadge() {
 
 // ── INIT ─────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  initTheme();
   document.getElementById('gem-date').value = todayStr();
   document.getElementById('tr-date').value  = todayStr();
 
