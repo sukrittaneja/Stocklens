@@ -1598,14 +1598,6 @@ const TRIAGE_LABELS = {
 };
 
 // ── MAGIC FILL ────────────────────────────────────────────────────
-const CHECKLIST_ITEMS_FOR_AI = CL_DATA.flatMap(ph => ph.sections.flatMap(s => s.items.map(it => ({
-  id: it.id, phase: ph.phase, phaseName: ph.name, text: it.text, weight: it.weight, hint: it.hint
-}))));
-
-const HARD_STOPS_FOR_AI = CL_HARD_STOPS.map(hs => ({
-  id: hs.id, phase: hs.phase, text: hs.text, note: 'YES means BAD condition is present = auto-reject'
-}));
-
 function toggleAiSummary() {
   const body = document.getElementById('ai-summary-body');
   const chev = document.getElementById('ai-summary-chevron');
@@ -1618,6 +1610,14 @@ async function magicFill() {
   const stock  = document.getElementById('cl-stock').value.trim();
   const sector = document.getElementById('cl-sector').value;
   if (!stock) { showToast('Enter a stock name first'); return; }
+
+  // Build these here (inside function) so CL_DATA is guaranteed to be defined
+  const itemsForAI = CL_DATA.flatMap(ph => ph.sections.flatMap(s => s.items.map(it => ({
+    id: it.id, phase: ph.phase, phaseName: ph.name, text: it.text, hint: it.hint, weight: it.weight
+  }))));
+  const hardStopsForAI = CL_HARD_STOPS.map(hs => ({
+    id: hs.id, phase: hs.phase, text: hs.text, note: 'answer yes if the BAD condition is present'
+  }));
 
   const btn = document.getElementById('magic-fill-btn');
   btn.textContent = '⟳ Searching & Analysing...';
@@ -1647,10 +1647,10 @@ Return ONLY valid JSON with this structure:
     const userPrompt = `Analyse ${stock} (NSE: ${stock}) for investment. Sector: ${sector || 'determine from research'}.
 
 HARD STOPS to assess (answer "yes" if the BAD condition is present):
-${JSON.stringify(HARD_STOPS_FOR_AI, null, 2)}
+${JSON.stringify(hardStopsForAI, null, 2)}
 
 CHECKLIST ITEMS to assess:
-${JSON.stringify(CHECKLIST_ITEMS_FOR_AI, null, 2)}
+${JSON.stringify(itemsForAI, null, 2)}
 
 Search for current financial data, shareholding, governance history, order book, recent results, and any red flags. Be honest about what you could not verify.`;
 
