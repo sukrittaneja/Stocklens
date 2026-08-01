@@ -938,7 +938,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
           <input type="date" id="cl-date">
         </div>
       </div>
-      <div class="field" style="margin-top:12px;margin-bottom:0">
+      <div class="field" style="margin-top:12px;margin-bottom:12px">
         <label>Sector</label>
         <select id="cl-sector" onchange="renderChecklistPhases()">
           <option value="">Select sector...</option>
@@ -951,6 +951,25 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
           <option>Textiles / Apparel</option><option>Media &amp; Entertainment</option>
           <option>Retail</option><option>Early-stage / Turnaround</option>
         </select>
+      </div>
+      <button class="btn btn-primary" id="magic-fill-btn" onclick="magicFill()" style="background:linear-gradient(135deg,#6B9E8F,#4A7E70);border:none">
+        ✨ Magic Fill — AI Analysis
+      </button>
+      <p style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5">Enter stock name + sector above, then tap. Claude searches the web and pre-fills the checklist. You review and override.</p>
+    </div>
+
+    <!-- AI Summary Panel (hidden until magic fill runs) -->
+    <div id="ai-summary-panel" style="display:none;margin:12px 16px 0;border-radius:var(--r);overflow:hidden;border:1px solid var(--accent)">
+      <div style="background:var(--accent);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleAiSummary()">
+        <span style="font-size:13px;font-weight:600;color:#fff">✨ AI Analysis Summary</span>
+        <span id="ai-summary-chevron" style="color:#fff;font-size:16px">›</span>
+      </div>
+      <div id="ai-summary-body" style="padding:14px;background:var(--surface)">
+        <div id="ai-summary-text" style="font-size:13px;color:var(--text2);line-height:1.8"></div>
+        <div style="margin-top:10px;padding:8px 10px;background:var(--yellow-bg);border-radius:var(--r-sm);border:1px solid var(--yellow-border)">
+          <p style="font-size:11px;color:var(--yellow);font-weight:600">🟡 Review all AI answers before saving</p>
+          <p style="font-size:11px;color:var(--text3);margin-top:2px">Items marked 🟢 AI are high confidence. Items marked 🟡 AI need verification. Blank items couldn't be determined.</p>
+        </div>
       </div>
     </div>
     <p class="section-label">Business Understanding
@@ -1578,6 +1597,138 @@ const TRIAGE_LABELS = {
   hs2:'No governance / fraud red flags',
 };
 
+// ── MAGIC FILL ────────────────────────────────────────────────────
+const CHECKLIST_ITEMS_FOR_AI = CL_DATA.flatMap(ph => ph.sections.flatMap(s => s.items.map(it => ({
+  id: it.id, phase: ph.phase, phaseName: ph.name, text: it.text, weight: it.weight, hint: it.hint
+}))));
+
+const HARD_STOPS_FOR_AI = CL_HARD_STOPS.map(hs => ({
+  id: hs.id, phase: hs.phase, text: hs.text, note: 'YES means BAD condition is present = auto-reject'
+}));
+
+function toggleAiSummary() {
+  const body = document.getElementById('ai-summary-body');
+  const chev = document.getElementById('ai-summary-chevron');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  chev.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
+}
+
+async function magicFill() {
+  const stock  = document.getElementById('cl-stock').value.trim();
+  const sector = document.getElementById('cl-sector').value;
+  if (!stock) { showToast('Enter a stock name first'); return; }
+
+  const btn = document.getElementById('magic-fill-btn');
+  btn.textContent = '⟳ Searching & Analysing...';
+  btn.disabled = true;
+
+  try {
+    const systemPrompt = `You are a professional Indian stock market analyst doing fundamental analysis for retail investors. 
+
+You will analyse a given NSE/BSE listed stock and return a JSON object with your analysis. Be honest about uncertainty — mark items null if you cannot verify with reasonable confidence.
+
+For each checklist item return:
+- "answer": "yes" | "no" | null (null = cannot determine, leave blank for user)
+- "confidence": "high" | "medium" | "low"
+- "evidence": one sentence with the specific data point and source
+
+For hard stops: "yes" means the BAD condition IS present (triggers rejection). Be conservative — only say "yes" to a hard stop if you are certain.
+
+Return ONLY valid JSON with this structure:
+{
+  "businessModel": "2-3 sentence explanation of how the business makes money",
+  "mainRisk": "1-2 sentence main risk",
+  "summary": "3-4 paragraph honest analysis covering business quality, financials, valuation, key risks, and what the user should verify manually",
+  "hardStops": { "hs_id": {"answer": "yes"|"no"|null, "confidence": "high"|"medium"|"low", "evidence": "..."} },
+  "items": { "item_id": {"answer": "yes"|"no"|null, "confidence": "high"|"medium"|"low", "evidence": "..."} }
+}`;
+
+    const userPrompt = `Analyse ${stock} (NSE: ${stock}) for investment. Sector: ${sector || 'determine from research'}.
+
+HARD STOPS to assess (answer "yes" if the BAD condition is present):
+${JSON.stringify(HARD_STOPS_FOR_AI, null, 2)}
+
+CHECKLIST ITEMS to assess:
+${JSON.stringify(CHECKLIST_ITEMS_FOR_AI, null, 2)}
+
+Search for current financial data, shareholding, governance history, order book, recent results, and any red flags. Be honest about what you could not verify.`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    });
+
+    const data = await response.json();
+
+    // Extract text content from response (may include tool use blocks)
+    const textBlocks = (data.content || []).filter(b => b.type === 'text').map(b => b.text);
+    const fullText = textBlocks.join('\n');
+
+    // Extract JSON from the response
+    const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON found in response');
+
+    const result = JSON.parse(jsonMatch[0]);
+
+    // Apply hard stops
+    if (result.hardStops) {
+      Object.entries(result.hardStops).forEach(([id, val]) => {
+        if (val.answer !== null && clHardStopState.hasOwnProperty(id)) {
+          clHardStopState[id] = val.answer;
+        }
+      });
+      clHardStopTriggered = Object.values(clHardStopState).some(v => v === 'yes');
+      if (clHardStopTriggered) {
+        const triggeredHs = CL_HARD_STOPS.find(hs => clHardStopState[hs.id] === 'yes');
+        clHardStopText = triggeredHs ? triggeredHs.text : 'Hard stop condition present.';
+      }
+    }
+
+    // Apply item answers — store confidence for badge display
+    window.aiFilledItems = {};
+    if (result.items) {
+      Object.entries(result.items).forEach(([id, val]) => {
+        if (val.answer !== null && clState.hasOwnProperty(id)) {
+          clState[id] = val.answer;
+          window.aiFilledItems[id] = { confidence: val.confidence, evidence: val.evidence };
+        }
+      });
+    }
+
+    // Fill text fields
+    if (result.businessModel) document.getElementById('cl-biz-model').value = result.businessModel;
+    if (result.mainRisk) document.getElementById('cl-biz-risk').value = result.mainRisk;
+
+    // Show summary panel
+    if (result.summary) {
+      const summaryEl = document.getElementById('ai-summary-text');
+      summaryEl.innerHTML = result.summary.replace(/\n\n/g, '<br><br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      document.getElementById('ai-summary-panel').style.display = 'block';
+      document.getElementById('ai-summary-chevron').style.transform = 'rotate(90deg)';
+    }
+
+    // Re-render checklist with AI answers
+    renderChecklistPhases();
+    updateCLScore();
+    showToast('✨ Magic Fill complete — review all answers');
+
+  } catch (e) {
+    showToast('Magic Fill failed: ' + e.message);
+    console.error('Magic Fill error:', e);
+  } finally {
+    btn.textContent = '✨ Magic Fill — AI Analysis';
+    btn.disabled = false;
+  }
+}
+
 // ── NAVIGATION ───────────────────────────────────────────────────
 let currentScreen = 'home';
 let previousScreen = 'home';
@@ -1944,12 +2095,21 @@ function renderChecklistPhases() {
 
     const itemsHTML = ph.sections.map(sec => `
       <div class="cl-section-hdr">${sec.name}</div>
-      ${sec.items.map(it => `
+      ${sec.items.map(it => {
+        const aiData = (window.aiFilledItems || {})[it.id];
+        const aiBadge = aiData
+          ? `<span style="font-size:10px;padding:2px 6px;border-radius:10px;font-weight:600;margin-left:6px;${aiData.confidence==='high'?'background:var(--green-bg);color:var(--green)':'background:var(--yellow-bg);color:var(--yellow)'}"> ${aiData.confidence==='high'?'🟢':'🟡'} AI</span>`
+          : '';
+        const aiEvidence = aiData
+          ? `<div style="font-size:11px;color:var(--accent);margin-top:3px;font-style:italic">${aiData.evidence}</div>`
+          : '';
+        return `
         <div class="cl-item ${clState[it.id]?'answered-'+clState[it.id]:''}" id="cli-${it.id}">
           <div class="cl-item-content">
-            <div class="cl-item-text">${it.text}</div>
+            <div class="cl-item-text">${it.text}${aiBadge}</div>
             <div class="cl-item-hint">${it.hint}</div>
             ${getSectorHint(it)}
+            ${aiEvidence}
             <div class="cl-item-wt">${it.weight>0?it.weight+' pt'+(it.weight!==1?'s':''):'Reference only'}</div>
           </div>
           <div class="cl-btns">
@@ -1957,7 +2117,8 @@ function renderChecklistPhases() {
             <button class="cl-btn ${clState[it.id]==='no'?'active-no':''}" onclick="setCL('${it.id}','no')">No</button>
             <button class="cl-btn ${clState[it.id]==='na'?'active-na':''}" onclick="setCL('${it.id}','na')">N/A</button>
           </div>
-        </div>`).join('')}`).join('');
+        </div>`;
+      }).join('')}`).join('');
 
     return `
     <div class="phase-card">
@@ -2143,10 +2304,13 @@ async function saveChecklist() {
 
 function resetChecklist() {
   currentResumeId = null;
+  window.aiFilledItems = {};
   Object.keys(clState).forEach(k=>clState[k]=null);
   Object.keys(clHardStopState).forEach(k=>clHardStopState[k]=null);
   Object.keys(phaseOpen).forEach(k=>phaseOpen[k]=k==='1');
   clHardStopTriggered=false; clHardStopText='';
+  const aiPanel = document.getElementById('ai-summary-panel');
+  if (aiPanel) aiPanel.style.display = 'none';
   ['cl-stock','cl-biz-model','cl-biz-risk','cl-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const dt=document.getElementById('cl-date');if(dt)dt.value=todayStr();
   const sc=document.getElementById('cl-sector');if(sc)sc.value='';
