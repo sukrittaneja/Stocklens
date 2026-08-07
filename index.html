@@ -952,26 +952,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
           <option>Retail</option><option>Early-stage / Turnaround</option>
         </select>
       </div>
-      <button class="btn btn-primary" id="magic-fill-btn" onclick="magicFill()" style="background:linear-gradient(135deg,#6B9E8F,#4A7E70);border:none">
-        ✨ Magic Fill — AI Analysis
-      </button>
-      <p style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5">Enter stock name + sector above, then tap. Claude searches the web and pre-fills the checklist. You review and override.</p>
+
     </div>
 
-    <!-- AI Summary Panel (hidden until magic fill runs) -->
-    <div id="ai-summary-panel" style="display:none;margin:12px 16px 0;border-radius:var(--r);overflow:hidden;border:1px solid var(--accent)">
-      <div style="background:var(--accent);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleAiSummary()">
-        <span style="font-size:13px;font-weight:600;color:#fff">✨ AI Analysis Summary</span>
-        <span id="ai-summary-chevron" style="color:#fff;font-size:16px">›</span>
-      </div>
-      <div id="ai-summary-body" style="padding:14px;background:var(--surface)">
-        <div id="ai-summary-text" style="font-size:13px;color:var(--text2);line-height:1.8"></div>
-        <div style="margin-top:10px;padding:8px 10px;background:var(--yellow-bg);border-radius:var(--r-sm);border:1px solid var(--yellow-border)">
-          <p style="font-size:11px;color:var(--yellow);font-weight:600">🟡 Review all AI answers before saving</p>
-          <p style="font-size:11px;color:var(--text3);margin-top:2px">Items marked 🟢 AI are high confidence. Items marked 🟡 AI need verification. Blank items couldn't be determined.</p>
-        </div>
-      </div>
-    </div>
     <p class="section-label">Business Understanding
       <span style="font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;font-size:11px;display:block;margin-top:2px">Write before answering checkboxes — forces clarity of thinking</span>
     </p>
