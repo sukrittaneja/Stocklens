@@ -1,0 +1,24 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    - cron: '0 9 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://hocrncptpleujkqqobgm.supabase.co/rest/v1/" \
+            -H "apikey: sb_publishable_Spd7XOSjocuRk_wC5qUNag_4anUoMcg" \
+            -H "Accept: application/json")
+          echo "Supabase ping status: $STATUS"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 500 ]; then
+            echo "✅ Supabase is active"
+          else
+            echo "❌ Unexpected status: $STATUS"
+            exit 1
+          fi
