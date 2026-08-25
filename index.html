@@ -1973,36 +1973,71 @@ function exportAllAnalyses() {
   const analyses = Store.getAnalyses();
   if (!analyses.length) { showToast('No saved analyses to export'); return; }
 
+  const ansIcon = a => a==='yes'?'✅':a==='no'?'❌':a==='na'?'—':'⬜';
+
   const rows = analyses.map(a => {
-    const date = a.date || '—';
-    const framework = a.framework || '—';
-    const verdict = a.verdictLabel || a.verdictKey || '—';
+    const vc = a.verdictKey==='green'?'#166534':a.verdictKey==='red'?'#991b1b':'#92400e';
+    const fw = a.framework||'—';
     const isWip = a.isWip ? ' 🗂 WIP' : '';
-    const verdictColor = a.verdictKey === 'green' ? '#166534' : a.verdictKey === 'red' ? '#991b1b' : '#92400e';
-    let details = '';
-    if (framework === 'Checklist' || framework === 'Checklist-WIP') {
-      const sources = a.sourceNames?.length ? '<p style="color:#666;font-size:11px">Sources: ' + a.sourceNames.join(', ') + '</p>' : '';
-      const score = a.yesPts != null ? '<p style="color:#666;font-size:11px">Score: ' + a.yesPts + '/' + a.maxPts + ' pts</p>' : '';
-      const biz   = a.bizModel ? '<p style="margin:6px 0 2px;font-weight:600">Business Model</p><p style="color:#444;font-size:12px">' + a.bizModel + '</p>' : '';
-      const risk  = a.bizRisk  ? '<p style="margin:6px 0 2px;font-weight:600">Main Risk</p><p style="color:#444;font-size:12px">'  + a.bizRisk  + '</p>' : '';
-      const notes = a.notes    ? '<p style="margin:6px 0 2px;font-weight:600">Notes / Thesis</p><p style="color:#444;font-size:12px">' + a.notes + '</p>' : '';
-      const hs    = a.hardStopTriggered ? '<p style="color:#c00;font-weight:600;margin:4px 0">🚩 Hard Stop Triggered</p>' : '';
-      details = hs + sources + score + biz + risk + notes;
-    } else if (framework === 'GEM') {
-      details = '<p style="font-size:12px;color:#444">PE: ' + (a.pe||'—') + ' | CAGR: ' + (a.cagr!=null?(a.cagr*100).toFixed(1)+'%':'—') + ' | Implied: ' + (a.implied!=null?(a.implied*100).toFixed(1)+'%':'—') + '</p>' + (a.notes ? '<p style="margin:6px 0 2px;font-weight:600">Notes</p><p style="color:#444;font-size:12px">' + a.notes + '</p>' : '');
-    } else if (framework === 'Triage') {
-      details = '<p style="font-size:12px;color:#444">Score: ' + (a.score||'—') + '/10</p>' + (a.notes ? '<p style="margin:6px 0 2px;font-weight:600">Notes</p><p style="color:#444;font-size:12px">' + a.notes + '</p>' : '');
+    let det = '';
+    det += a.hardStopTriggered ? '<p style="color:#c00;font-weight:600;margin:4px 0">🚩 Hard Stop Triggered</p>' : '';
+    det += a.sourceNames?.length ? '<p style="color:#666;font-size:11px;margin:2px 0">Sources: ' + a.sourceNames.join(', ') + '</p>' : '';
+    det += a.yesPts!=null ? '<p style="color:#666;font-size:11px;margin:2px 0">Score: ' + a.yesPts + '/' + a.maxPts + ' pts</p>' : '';
+    det += a.bizModel ? '<p style="margin:8px 0 2px;font-weight:600">Business Model</p><p style="color:#444;font-size:12px">' + a.bizModel + '</p>' : '';
+    det += a.bizRisk  ? '<p style="margin:6px 0 2px;font-weight:600">Main Risk</p><p style="color:#444;font-size:12px">' + a.bizRisk + '</p>' : '';
+
+    // Full checklist breakdown
+    if ((fw === 'Checklist' || fw === 'Checklist-WIP') && a.scores && typeof CL_DATA !== 'undefined') {
+      if (a.hardStops && typeof CL_HARD_STOPS !== 'undefined') {
+        det += '<div style="margin-top:14px"><p style="font-weight:700;font-size:13px;border-bottom:2px solid #e0e0e0;padding-bottom:4px;margin-bottom:8px">🚩 Hard Stops</p>';
+        CL_HARD_STOPS.forEach(hs => {
+          const ans = a.hardStops[hs.id];
+          const col = ans==='yes'?'#c00':ans==='no'?'#166534':'#999';
+          det += '<div style="display:flex;gap:8px;padding:3px 0;font-size:11px"><span style="color:'+col+';font-weight:700;min-width:32px">'+(ans?ans.toUpperCase():'—')+'</span><span style="color:#333">'+hs.text+'</span></div>';
+        });
+        det += '</div>';
+      }
+      CL_DATA.forEach(ph => {
+        det += '<div style="margin-top:16px"><p style="font-weight:700;font-size:13px;border-bottom:2px solid #e0e0e0;padding-bottom:4px;margin-bottom:8px">Phase '+ph.phase+' — '+ph.name+'</p>';
+        ph.sections.forEach(sec => {
+          det += '<p style="font-size:10px;font-weight:700;color:#888;margin:8px 0 4px;text-transform:uppercase;letter-spacing:.5px">'+sec.name+'</p>';
+          sec.items.forEach(it => {
+            const ans = a.scores[it.id];
+            const icon = ansIcon(ans);
+            det += '<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid #f5f5f5;align-items:flex-start"><span style="font-size:12px;min-width:20px;flex-shrink:0">'+icon+'</span><span style="font-size:11px;color:#333;flex:1;line-height:1.5">'+it.text+'</span>'+(it.weight>0?'<span style="font-size:10px;color:#bbb;flex-shrink:0">'+it.weight+'pt</span>':'')+'</div>';
+          });
+        });
+        det += '</div>';
+      });
+    } else if (fw === 'GEM') {
+      det += '<p style="font-size:12px;color:#444;margin-top:6px">PE: '+(a.pe||'—')+' | EPS CAGR: '+(a.cagr!=null?(a.cagr*100).toFixed(1)+'%':'—')+' | Implied Growth: '+(a.implied!=null?(a.implied*100).toFixed(1)+'%':'—')+'</p>';
+    } else if (fw === 'Triage') {
+      det += '<p style="font-size:12px;color:#444;margin-top:6px">Score: '+(a.score||'—')+'/10</p>';
     }
-    return '<div style="page-break-inside:avoid;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:16px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px"><div><span style="font-size:18px;font-weight:700">' + (a.stock||'—') + '</span><span style="font-size:12px;color:#666;margin-left:8px">' + framework + isWip + '</span></div><div style="text-align:right"><div style="font-size:12px;color:#666">' + date + '</div><div style="font-size:12px;font-weight:600;color:' + verdictColor + '">' + verdict + '</div></div></div>' + (a.sector ? '<p style="font-size:11px;color:#888;margin-bottom:8px">' + a.sector + '</p>' : '') + details + '</div>';
+    det += a.notes ? '<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:6px;border-left:3px solid #ccc"><p style="font-size:11px;font-weight:600;margin-bottom:4px">Notes / Investment Thesis</p><p style="font-size:12px;color:#444;line-height:1.6">'+a.notes+'</p></div>' : '';
+
+    return '<div style="page-break-inside:avoid;border:1px solid #e0e0e0;border-radius:8px;padding:20px;margin-bottom:24px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'+
+        '<div><strong style="font-size:18px">'+(a.stock||'—')+'</strong><span style="font-size:12px;color:#666;margin-left:8px">'+fw+isWip+'</span></div>'+
+        '<div style="text-align:right"><div style="font-size:12px;color:#666">'+(a.date||'—')+'</div><div style="font-size:12px;font-weight:600;color:'+vc+'">'+(a.verdictLabel||a.verdictKey||'—')+'</div></div>'+
+      '</div>'+
+      (a.sector?'<p style="font-size:11px;color:#888;margin-bottom:10px">'+a.sector+'</p>':'')+
+      det+'</div>';
   }).join('');
 
-  const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>StockLens Export</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:800px;margin:0 auto;padding:32px 24px;color:#1c1917}h1{font-size:24px;margin-bottom:4px}.sub{color:#666;font-size:13px;margin-bottom:32px}@media print{body{padding:0}}</style></head><body><h1>💎 StockLens — Investment Analysis Export</h1><p class="sub">Generated ' + new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}) + ' · ' + analyses.length + ' analyses</p>' + rows + '<p style="margin-top:32px;font-size:11px;color:#aaa;text-align:center">StockLens · Personal Investment Framework</p></body></html>';
+  const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>StockLens Export</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:860px;margin:0 auto;padding:32px 24px;color:#1c1917}h1{font-size:22px;margin-bottom:4px}.sub{color:#666;font-size:12px;margin-bottom:28px}@media print{body{padding:0}}</style></head><body>'+
+    '<h1>💎 StockLens — Investment Analysis Export</h1>'+
+    '<p class="sub">'+new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})+' · '+analyses.length+' '+(analyses.length===1?'analysis':'analyses')+'</p>'+
+    rows+
+    '<p style="margin-top:28px;font-size:11px;color:#aaa;text-align:center">StockLens · Personal Investment Framework · stocklens-mu.vercel.app</p>'+
+    '</body></html>';
 
-  const win = window.open('', '_blank');
-  win.document.write(html);
-  win.document.close();
-  setTimeout(() => win.print(), 600);
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => w.print(), 800);
 }
+
 
 // ── NAVIGATION ───────────────────────────────────────────────────
 let currentScreen = 'home';
