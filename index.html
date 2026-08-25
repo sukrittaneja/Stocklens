@@ -2026,6 +2026,8 @@ function navigate(screen) {
     });
   }
   if (screen === 'checklist') { renderSourceTabs(); renderChecklistPhases(); }
+  const activeEl = document.getElementById('screen-' + screen);
+  if (activeEl) activeEl.scrollTop = 0;
   window.scrollTo(0, 0);
 }
 
@@ -3517,3 +3519,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   </div>
 </body>
 </html>
+<script>
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.nav-btn');
+  if (btn && btn.id) {
+    const screen = btn.id.replace('nav-', '');
+    setTimeout(function() { const el = document.getElementById('screen-' + screen); if (el) el.scrollTop = 0; }, 30);
+  }
+});
+</script>
