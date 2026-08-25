@@ -326,7 +326,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 @media(min-width:768px){
   .cl-desktop-grid{display:grid;grid-template-columns:1fr repeat(var(--src-count,0),280px);gap:0;overflow-x:auto}
   .cl-desktop-col{border-left:1px solid var(--border)}
-  .cl-src-tabs-wrap{display:none}
 }
 .triage-item.answered-yes{background:rgba(34,197,94,.06)}
 .triage-item.answered-no{background:rgba(239,68,68,.06)}
@@ -1977,7 +1976,7 @@ function navigate(screen) {
       updateBadge();
     });
   }
-  if (screen === 'checklist') renderChecklistPhases();
+  if (screen === 'checklist') { renderSourceTabs(); renderChecklistPhases(); }
   window.scrollTo(0, 0);
 }
 
