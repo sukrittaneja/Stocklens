@@ -432,6 +432,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar{width:0;height:0}
+#screen-help{position:fixed;top:0;left:0;right:0;bottom:64px;overflow-y:auto;z-index:50;background:var(--bg)}
 </style>
 </head>
 <body>
@@ -2026,8 +2027,6 @@ function navigate(screen) {
     });
   }
   if (screen === 'checklist') { renderSourceTabs(); renderChecklistPhases(); }
-  const activeEl = document.getElementById('screen-' + screen);
-  if (activeEl) activeEl.scrollTop = 0;
   window.scrollTo(0, 0);
 }
 
@@ -3519,12 +3518,3 @@ document.addEventListener('DOMContentLoaded', async () => {
   </div>
 </body>
 </html>
-<script>
-document.addEventListener('click', function(e) {
-  const btn = e.target.closest('.nav-btn');
-  if (btn && btn.id) {
-    const screen = btn.id.replace('nav-', '');
-    setTimeout(function() { const el = document.getElementById('screen-' + screen); if (el) el.scrollTop = 0; }, 30);
-  }
-});
-</script>
