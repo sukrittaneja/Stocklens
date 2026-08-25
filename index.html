@@ -710,9 +710,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
   <!-- ══ SCREEN: SAVED ══ -->
   <div id="screen-saved" class="screen">
-    <div class="screen-header">
-      <h1>Saved Analyses</h1>
-      <p>Tap any entry to view full breakdown</p>
+    <div class="screen-header" style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <h1>Saved Analyses</h1>
+        <p>Tap any entry to view full breakdown</p>
+      </div>
+      <button onclick="exportAllAnalyses()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text3);font-size:12px;padding:6px 12px;border-radius:var(--r-sm);cursor:pointer;font-family:inherit;white-space:nowrap">📤 Export PDF</button>
     </div>
     <div class="search-bar">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35" stroke-linecap="round"/></svg>
@@ -1067,6 +1070,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-7-3.5L5 21V5z"/></svg>
       Saved
       <span id="saved-badge" class="nav-badge" style="position:relative;top:0;right:0;margin-left:2px"></span>
+    </button>
+    <button class="nav-btn" onclick="navigate('help')" id="nav-help">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008z"/></svg>
+      Help
     </button>
   </nav>
 </div>
@@ -1960,6 +1967,42 @@ Search for current financial data, shareholding, governance history, order book,
   }
 }
 
+// ── EXPORT ────────────────────────────────────────────────────────
+function exportAllAnalyses() {
+  const analyses = Store.getAnalyses();
+  if (!analyses.length) { showToast('No saved analyses to export'); return; }
+
+  const rows = analyses.map(a => {
+    const date = a.date || '—';
+    const framework = a.framework || '—';
+    const verdict = a.verdictLabel || a.verdictKey || '—';
+    const isWip = a.isWip ? ' 🗂 WIP' : '';
+    const verdictColor = a.verdictKey === 'green' ? '#166534' : a.verdictKey === 'red' ? '#991b1b' : '#92400e';
+    let details = '';
+    if (framework === 'Checklist' || framework === 'Checklist-WIP') {
+      const sources = a.sourceNames?.length ? '<p style="color:#666;font-size:11px">Sources: ' + a.sourceNames.join(', ') + '</p>' : '';
+      const score = a.yesPts != null ? '<p style="color:#666;font-size:11px">Score: ' + a.yesPts + '/' + a.maxPts + ' pts</p>' : '';
+      const biz   = a.bizModel ? '<p style="margin:6px 0 2px;font-weight:600">Business Model</p><p style="color:#444;font-size:12px">' + a.bizModel + '</p>' : '';
+      const risk  = a.bizRisk  ? '<p style="margin:6px 0 2px;font-weight:600">Main Risk</p><p style="color:#444;font-size:12px">'  + a.bizRisk  + '</p>' : '';
+      const notes = a.notes    ? '<p style="margin:6px 0 2px;font-weight:600">Notes / Thesis</p><p style="color:#444;font-size:12px">' + a.notes + '</p>' : '';
+      const hs    = a.hardStopTriggered ? '<p style="color:#c00;font-weight:600;margin:4px 0">🚩 Hard Stop Triggered</p>' : '';
+      details = hs + sources + score + biz + risk + notes;
+    } else if (framework === 'GEM') {
+      details = '<p style="font-size:12px;color:#444">PE: ' + (a.pe||'—') + ' | CAGR: ' + (a.cagr!=null?(a.cagr*100).toFixed(1)+'%':'—') + ' | Implied: ' + (a.implied!=null?(a.implied*100).toFixed(1)+'%':'—') + '</p>' + (a.notes ? '<p style="margin:6px 0 2px;font-weight:600">Notes</p><p style="color:#444;font-size:12px">' + a.notes + '</p>' : '');
+    } else if (framework === 'Triage') {
+      details = '<p style="font-size:12px;color:#444">Score: ' + (a.score||'—') + '/10</p>' + (a.notes ? '<p style="margin:6px 0 2px;font-weight:600">Notes</p><p style="color:#444;font-size:12px">' + a.notes + '</p>' : '');
+    }
+    return '<div style="page-break-inside:avoid;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:16px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px"><div><span style="font-size:18px;font-weight:700">' + (a.stock||'—') + '</span><span style="font-size:12px;color:#666;margin-left:8px">' + framework + isWip + '</span></div><div style="text-align:right"><div style="font-size:12px;color:#666">' + date + '</div><div style="font-size:12px;font-weight:600;color:' + verdictColor + '">' + verdict + '</div></div></div>' + (a.sector ? '<p style="font-size:11px;color:#888;margin-bottom:8px">' + a.sector + '</p>' : '') + details + '</div>';
+  }).join('');
+
+  const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>StockLens Export</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:800px;margin:0 auto;padding:32px 24px;color:#1c1917}h1{font-size:24px;margin-bottom:4px}.sub{color:#666;font-size:13px;margin-bottom:32px}@media print{body{padding:0}}</style></head><body><h1>💎 StockLens — Investment Analysis Export</h1><p class="sub">Generated ' + new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}) + ' · ' + analyses.length + ' analyses</p>' + rows + '<p style="margin-top:32px;font-size:11px;color:#aaa;text-align:center">StockLens · Personal Investment Framework</p></body></html>';
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(() => win.print(), 600);
+}
+
 // ── NAVIGATION ───────────────────────────────────────────────────
 let currentScreen = 'home';
 let previousScreen = 'home';
@@ -2187,18 +2230,16 @@ function removeSource(id, e) {
   renderChecklistPhases();
 }
 
-function renameSource(id, e) {
-  e && e.stopPropagation();
+function promptRenameSource(id) {
   const src = clSources.find(s => s.id === id);
   if (!src) return;
-  const inp = document.getElementById(`src-name-${id}`);
-  if (inp) { inp.focus(); inp.select(); }
-}
-
-function srcNameChanged(id) {
-  const src = clSources.find(s => s.id === id);
-  const inp = document.getElementById(`src-name-${id}`);
-  if (src && inp) src.name = inp.value.trim() || src.name;
+  const newName = prompt('Rename source:', src.name);
+  if (newName && newName.trim()) {
+    src.name = newName.trim();
+    renderSourceTabs();
+    // Update paste label if this is active source
+    if (clActiveSourceId === id) setActiveSource(id);
+  }
 }
 
 function setFilter(f) {
@@ -2274,9 +2315,10 @@ function renderSourceTabs() {
 
   clSources.forEach(src => {
     const filledCount = Object.values(src.state).filter(v => v !== null).length;
+    const isActive = clActiveSourceId === src.id;
     tabs.push(`
-      <button class="src-tab ${clActiveSourceId===src.id?'src-tab-active':''}" onclick="setActiveSource('${src.id}')">
-        <input id="src-name-${src.id}" value="${src.name}" onchange="srcNameChanged('${src.id}')" onclick="event.stopPropagation()" style="background:none;border:none;font:inherit;color:inherit;width:${Math.max(50, src.name.length * 8)}px;cursor:text;outline:none;padding:0">
+      <button class="src-tab ${isActive ? 'src-tab-active' : ''}" onclick="setActiveSource('${src.id}')">
+        <span ondblclick="event.stopPropagation();promptRenameSource('${src.id}')" style="cursor:text">${src.name}</span>
         ${filledCount ? `<span style="font-size:10px;opacity:0.8">(${filledCount})</span>` : ''}
         <span onclick="removeSource('${src.id}',event)" style="margin-left:4px;opacity:0.6;font-size:12px">✕</span>
       </button>`);
@@ -3399,5 +3441,79 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 </script>
+
+  <!-- ══ SCREEN: HELP ══ -->
+  <div id="screen-help" class="screen">
+    <div class="screen-header" style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <h1>📖 How StockLens Works</h1>
+        <p>Framework reference & user guide</p>
+      </div>
+      <button onclick="navigate('home')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text3);font-size:12px;padding:6px 12px;border-radius:var(--r-sm);cursor:pointer;font-family:inherit">← Back</button>
+    </div>
+
+    <div style="padding:0 16px 100px">
+
+      <p class="section-label">GEM — Growth Equivalence Model</p>
+      <div class="card">
+        <p style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">What it is</p>
+        <p style="font-size:13px;color:var(--text2);line-height:1.7">A reverse DCF. Instead of projecting growth forward, you ask: what EPS growth rate does the current PE <em>imply</em>? Compare that to actual EPS CAGR. If actual exceeds implied — the market is underpricing the growth — potentially undervalued. If actual falls short — the stock is priced for perfection.</p>
+        <p style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.6">No guesswork. Just math. The formula uses a 10-year DCF with 8% discount rate. A PE of 25x implies roughly 18–20% growth. If the company has actually grown at 30%, the market hasn't caught up yet.</p>
+      </div>
+
+      <p class="section-label">Quick Triage</p>
+      <div class="card">
+        <p style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">What it is</p>
+        <p style="font-size:13px;color:var(--text2);line-height:1.7">12 items. 2 hard stops. Takes 5 minutes. Most stocks fail here — and that's the point. Don't waste a 2-hour deep dive on something you should have eliminated in 5 minutes.</p>
+        <p style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.6">Score 8+ out of 10 = deserves a full checklist. Hard stops are non-negotiable: if you don't understand the business or if there's proven fraud, the analysis ends immediately.</p>
+      </div>
+
+      <p class="section-label">Full Checklist — 5 Phases</p>
+      <div class="card">
+        <p style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">What it is</p>
+        <p style="font-size:13px;color:var(--text2);line-height:1.7">65 items across Business Quality, Valuation, Growth, Institutional Flow, and Market Context. The most thorough filter in the app.</p>
+        <div style="margin-top:10px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:4px;line-height:1.7">• <strong>Hard stops</strong> — governance fraud, excessive debt, persistent negative OCF, promoter pledge above 50%. If triggered, verdict locks to Skip but you can still complete the analysis.</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:4px;line-height:1.7">• <strong>Scoring</strong> — 80%+ = High Conviction, 60–79% = Medium Conviction, below 60% = Avoid.</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.7">• <strong>Minimum 30 items</strong> must be answered before saving a Final Analysis. Prevents saving incomplete work as a verdict.</div>
+        </div>
+      </div>
+
+      <p class="section-label">Multi-Source Analysis</p>
+      <div class="card">
+        <p style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">What it is</p>
+        <p style="font-size:13px;color:var(--text2);line-height:1.7">Add up to 4 LLM sources — Claude, GPT, Gemini, Perplexity, or any research tool. Paste each model's structured data block into its own tab. The app compares answers automatically.</p>
+        <div style="margin-top:10px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:4px;line-height:1.7">🟢 All sources agree → Master auto-filled. High confidence.</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:4px;line-height:1.7">🟡 Majority agree → Master auto-filled. Note the outlier.</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:4px;line-height:1.7">🔴 Sources conflict → Master left blank. You decide.</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:8px;line-height:1.6">LLMs inform your judgment. They don't replace it. The conflicts are your research queue.</div>
+        </div>
+      </div>
+
+      <p class="section-label">Filters</p>
+      <div class="card">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px;line-height:1.7">• <strong>🔴 Show Conflicts</strong> — only items where sources disagree. Work through these before saving.</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7">• <strong>⬜ Show Unfilled</strong> — only items with no answer yet. Use before saving to catch gaps.</div>
+      </div>
+
+      <p class="section-label">Save Work in Progress vs Save Final</p>
+      <div class="card">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px;line-height:1.7">• <strong>Save Work in Progress</strong> — saves everything including all sources. Fully resumable later with all source tabs intact.</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7">• <strong>Save Final Analysis</strong> — saves only your Master column verdict. Goes to Saved and syncs across all your devices. This is your investment record.</div>
+      </div>
+
+      <p class="section-label">Watchlist</p>
+      <div class="card">
+        <p style="font-size:13px;color:var(--text2);line-height:1.7">Stocks you want to analyse but haven't yet. Add quickly, come back when ready. Tap Analyse to jump straight into Quick Triage.</p>
+      </div>
+
+      <p class="section-label">Sync & Backup</p>
+      <div class="card">
+        <p style="font-size:13px;color:var(--text2);line-height:1.7">Your data lives in Supabase cloud. Save on phone, open on laptop — it's there within seconds. Use Export in the Saved tab to download a PDF backup of your full analysis history.</p>
+      </div>
+
+    </div>
+  </div>
 </body>
 </html>
