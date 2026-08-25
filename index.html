@@ -979,10 +979,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <button class="src-tab" onclick="addSource()" style="opacity:0.7">+ Add Source</button>
     </div>
 
-    <!-- Source paste area (shown when non-master tab active) -->
-    <div id="cl-source-paste" style="display:none;padding:0 16px 10px">
-      <textarea id="paste-current-src" rows="3" placeholder="Paste === STOCKLENS DATA === block here..." style="width:100%;padding:10px 12px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r-sm);font-size:11px;font-family:monospace;color:var(--text2);resize:vertical;box-sizing:border-box"></textarea>
-      <button onclick="fillCurrentSource()" style="margin-top:6px;width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">✨ Fill this Source</button>
+    <!-- Paste area — always visible, fills active tab -->
+    <div style="padding:0 16px 10px" id="cl-paste-area">
+      <div id="cl-paste-label" style="font-size:12px;color:var(--text3);margin-bottom:6px">📋 Paste data block from Claude / GPT / Gemini — fills Master directly:</div>
+      <textarea id="paste-analysis" rows="3" placeholder="Paste the === STOCKLENS DATA === ... === END DATA === block here..." style="width:100%;padding:10px 12px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r-sm);font-size:11px;font-family:monospace;color:var(--text2);resize:vertical;box-sizing:border-box"></textarea>
+      <button onclick="fillActiveTab()" style="margin-top:6px;width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit" id="cl-paste-btn">✨ Fill Checklist</button>
     </div>
 
     <p class="section-label">Business Understanding
@@ -2198,6 +2199,40 @@ function setActiveSource(id) {
   clActiveSourceId = id;
   renderSourceTabs();
   renderChecklistPhases();
+  // Update paste box label
+  const label = document.getElementById('cl-paste-label');
+  const btn   = document.getElementById('cl-paste-btn');
+  if (id === 'master') {
+    if (label) label.textContent = '📋 Paste data block — fills Master directly:';
+    if (btn)   btn.textContent   = '✨ Fill Checklist';
+  } else {
+    const src = clSources.find(s => s.id === id);
+    if (label) label.textContent = `📋 Paste data block for ${src?.name || 'source'}:`;
+    if (btn)   btn.textContent   = `✨ Fill ${src?.name || 'Source'}`;
+  }
+}
+
+function fillActiveTab() {
+  const ta = document.getElementById('paste-analysis');
+  if (!ta || !ta.value.trim()) { showToast('Paste the data block first'); return; }
+
+  if (clActiveSourceId === 'master') {
+    // Fill master directly using existing fillFromPaste logic
+    fillFromPaste();
+  } else {
+    // Temporarily point paste-analysis to source paste function
+    const src = clSources.find(s => s.id === clActiveSourceId);
+    if (!src) return;
+    const txt = ta.value; ta.value = '';
+    // Create temp textarea with source ID
+    const tmp = document.createElement('textarea');
+    tmp.id = `paste-${clActiveSourceId}`;
+    tmp.value = txt;
+    tmp.style.display = 'none';
+    document.body.appendChild(tmp);
+    fillSourceFromPaste(clActiveSourceId);
+    document.body.removeChild(tmp);
+  }
 }
 
 function renderSourceTabs() {
@@ -2228,7 +2263,7 @@ function renderSourceTabs() {
 }
 
 function fillSourceFromPaste(sourceId) {
-  const ta  = document.getElementById(`paste-${sourceId}`);
+  const ta  = document.getElementById(`paste-${sourceId}`) || document.getElementById('paste-analysis');
   const src = clSources.find(s => s.id === sourceId);
   if (!ta || !ta.value.trim()) { showToast('Paste data first'); return; }
   if (!src) return;
@@ -2464,56 +2499,11 @@ const SECTOR_NOTES = {
   },
 };
 
-function fillCurrentSource() {
-  if (clActiveSourceId === 'master') {
-    // Master paste — use old fillFromPaste logic
-    const ta = document.getElementById('paste-current-src');
-    if (!ta) return;
-    // Temporarily swap to fill master
-    const txt = ta.value;
-    ta.value = '';
-    // Create a temporary source, fill it, apply to master
-    const tmpId = 'tmp_' + Date.now();
-    const { state: tmpState, hs: tmpHs } = _srcInitState();
-    clSources.push({ id: tmpId, name: '__tmp__', state: tmpState, hardStops: tmpHs, aiFilledItems: {} });
-    const srcIdx = clSources.length - 1;
-    document.getElementById('paste-current-src').value = txt;
-    const origActive = clActiveSourceId;
-    clActiveSourceId = tmpId;
-    // Re-wire paste box
-    const taEl = document.getElementById(`paste-${tmpId}`);
-    if (taEl) taEl.value = txt;
-    fillSourceFromPaste(tmpId);
-    // Copy to master
-    Object.keys(tmpState).forEach(k => { if (tmpState[k] !== null) { clState[k] = tmpState[k]; clMasterOverrides.add(k); } });
-    Object.keys(tmpHs).forEach(k => { if (tmpHs[k] !== null) clHardStopState[k] = tmpHs[k]; });
-    clSources.splice(srcIdx, 1);
-    clActiveSourceId = origActive;
-    computeComparison();
-    renderChecklistPhases();
-    return;
-  }
-  fillSourceFromPaste(clActiveSourceId);
-}
+
 
 function renderChecklistPhases() {
   const container = document.getElementById('cl-phases');
   if (!container) return;
-
-  // Show/hide source paste area
-  const pasteSec = document.getElementById('cl-source-paste');
-  if (pasteSec) {
-    if (clActiveSourceId !== 'master') {
-      pasteSec.style.display = 'block';
-      // Ensure the textarea has the right ID for this source
-      const ta = document.getElementById('paste-current-src');
-      if (ta) ta.id = `paste-${clActiveSourceId}`;
-      // Restore for next call
-      setTimeout(() => { const t = document.getElementById(`paste-${clActiveSourceId}`); if (t) t.id = 'paste-current-src'; }, 100);
-    } else {
-      pasteSec.style.display = 'none';
-    }
-  }
 
   // Hard stop warning
   const hsWarning = clHardStopTriggered ? `
