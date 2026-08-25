@@ -310,7 +310,24 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   transition:background .15s
 }
 .triage-item:last-child{border-bottom:none}
-.triage-item.hard-stop{border-left:3px solid var(--red-border)}
+.src-tab{padding:8px 14px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text2);font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;transition:all .15s}
+.src-tab-active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.cl-src-tabs-wrap{padding:0 16px 10px;overflow-x:auto;display:flex;gap:8px;scrollbar-width:none}
+.cl-src-tabs-wrap::-webkit-scrollbar{display:none}
+.cl-comparison-row{display:flex;gap:4px;margin:4px 0}
+.cmp-badge{font-size:10px;padding:1px 5px;border-radius:8px;font-weight:600}
+.cmp-yes{background:var(--green-bg);color:var(--green)}
+.cmp-no{background:var(--red-bg);color:var(--red)}
+.cmp-na{background:var(--surface2);color:var(--text3)}
+.cmp-conflict{background:var(--red-bg);border:1px solid var(--red-border)}
+.cmp-consensus{background:var(--green-bg);border:1px solid var(--green-border)}
+.cmp-majority{background:var(--yellow-bg);border:1px solid var(--yellow-border)}
+.cmp-isolated{background:var(--surface2);border:1px solid var(--border)}
+@media(min-width:768px){
+  .cl-desktop-grid{display:grid;grid-template-columns:1fr repeat(var(--src-count,0),280px);gap:0;overflow-x:auto}
+  .cl-desktop-col{border-left:1px solid var(--border)}
+  .cl-src-tabs-wrap{display:none}
+}
 .triage-item.answered-yes{background:rgba(34,197,94,.06)}
 .triage-item.answered-no{background:rgba(239,68,68,.06)}
 .triage-item.answered-na{background:rgba(107,114,128,.04)}
@@ -956,11 +973,16 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
     </div>
 
-    <!-- PDF Upload -->
-    <div style="margin:0 16px 12px">
-      <div style="font-size:12px;color:var(--text3);margin-bottom:6px">📋 Paste the data block from Claude's analysis:</div>
-      <textarea id="paste-analysis" rows="3" placeholder="Paste the === STOCKLENS DATA === ... === END DATA === block here..." style="width:100%;padding:10px 12px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r-sm);font-size:11px;font-family:monospace;color:var(--text2);resize:vertical;line-height:1.5;box-sizing:border-box"></textarea>
-      <button onclick="fillFromPaste()" style="margin-top:8px;width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">✨ Fill Checklist from Pasted Data</button>
+    <!-- Source tabs -->
+    <div class="cl-src-tabs-wrap" id="cl-source-tabs">
+      <button class="src-tab src-tab-active" onclick="setActiveSource('master')">✅ Master</button>
+      <button class="src-tab" onclick="addSource()" style="opacity:0.7">+ Add Source</button>
+    </div>
+
+    <!-- Source paste area (shown when non-master tab active) -->
+    <div id="cl-source-paste" style="display:none;padding:0 16px 10px">
+      <textarea id="paste-current-src" rows="3" placeholder="Paste === STOCKLENS DATA === block here..." style="width:100%;padding:10px 12px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r-sm);font-size:11px;font-family:monospace;color:var(--text2);resize:vertical;box-sizing:border-box"></textarea>
+      <button onclick="fillCurrentSource()" style="margin-top:6px;width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">✨ Fill this Source</button>
     </div>
 
     <p class="section-label">Business Understanding
@@ -993,10 +1015,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       </div>
     </div>
     <div style="margin:16px 16px 0">
-      <button class="btn btn-primary" onclick="saveChecklist()">Save Analysis</button>
+      <button class="btn btn-primary" onclick="saveFinalAnalysis()">💾 Save Final Analysis</button>
     </div>
-    <div style="margin:10px 16px 0">
-      <button class="btn btn-ghost" onclick="resetChecklist()">Clear / New Analysis</button>
+    <div style="margin:8px 16px 0;display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="saveWip()">🗂 Save Work in Progress</button>
+      <button class="btn btn-ghost" style="flex:1" onclick="resetChecklist()">Clear / New</button>
     </div>
   </div>
 
@@ -2121,6 +2144,202 @@ const phaseOpen = {1:true,2:false,3:false,4:false,5:false};
 let clHardStopTriggered = false;
 let clHardStopText = '';
 
+// ── MULTI-SOURCE STATE ────────────────────────────────────────────
+let clSources        = [];   // [{ id, name, state, hardStops, aiFilledItems }]
+let clComparison     = {};   // itemId → { status, answers, consensus }
+let clMasterOverrides = new Set(); // items user manually set on master
+let clActiveSourceId = 'master';   // active tab on mobile
+let clWipId          = null;       // ID of WIP save being resumed
+
+const SRC_DEFAULT_NAMES = ['Claude','GPT','Gemini','Perplexity'];
+
+function _srcInitState() {
+  const state = {}, hs = {};
+  CL_DATA.forEach(ph => ph.sections.forEach(s => s.items.forEach(it => state[it.id] = null)));
+  CL_HARD_STOPS.forEach(h => hs[h.id] = null);
+  return { state, hs };
+}
+
+function addSource() {
+  if (clSources.length >= 4) { showToast('Maximum 4 sources'); return; }
+  const { state, hs } = _srcInitState();
+  const id   = 'src_' + Date.now();
+  const name = SRC_DEFAULT_NAMES[clSources.length] || `Source ${clSources.length + 1}`;
+  clSources.push({ id, name, state, hardStops: hs, aiFilledItems: {} });
+  clActiveSourceId = id;
+  renderSourceTabs();
+  renderChecklistPhases();
+}
+
+function removeSource(id, e) {
+  e && e.stopPropagation();
+  clSources = clSources.filter(s => s.id !== id);
+  if (clActiveSourceId === id) clActiveSourceId = 'master';
+  computeComparison();
+  renderSourceTabs();
+  renderChecklistPhases();
+}
+
+function renameSource(id, e) {
+  e && e.stopPropagation();
+  const src = clSources.find(s => s.id === id);
+  if (!src) return;
+  const inp = document.getElementById(`src-name-${id}`);
+  if (inp) { inp.focus(); inp.select(); }
+}
+
+function srcNameChanged(id) {
+  const src = clSources.find(s => s.id === id);
+  const inp = document.getElementById(`src-name-${id}`);
+  if (src && inp) src.name = inp.value.trim() || src.name;
+}
+
+function setActiveSource(id) {
+  clActiveSourceId = id;
+  renderSourceTabs();
+  renderChecklistPhases();
+}
+
+function renderSourceTabs() {
+  const container = document.getElementById('cl-source-tabs');
+  if (!container) return;
+
+  const tabs = [
+    `<button class="src-tab ${clActiveSourceId==='master'?'src-tab-active':''}" onclick="setActiveSource('master')">
+       ✅ Master
+     </button>`
+  ];
+
+  clSources.forEach(src => {
+    const filledCount = Object.values(src.state).filter(v => v !== null).length;
+    tabs.push(`
+      <button class="src-tab ${clActiveSourceId===src.id?'src-tab-active':''}" onclick="setActiveSource('${src.id}')">
+        <input id="src-name-${src.id}" value="${src.name}" onchange="srcNameChanged('${src.id}')" onclick="event.stopPropagation()" style="background:none;border:none;font:inherit;color:inherit;width:${Math.max(50, src.name.length * 8)}px;cursor:text;outline:none;padding:0">
+        ${filledCount ? `<span style="font-size:10px;opacity:0.8">(${filledCount})</span>` : ''}
+        <span onclick="removeSource('${src.id}',event)" style="margin-left:4px;opacity:0.6;font-size:12px">✕</span>
+      </button>`);
+  });
+
+  if (clSources.length < 4) {
+    tabs.push(`<button class="src-tab" onclick="addSource()" style="opacity:0.7">+ Add Source</button>`);
+  }
+
+  container.innerHTML = tabs.join('');
+}
+
+function fillSourceFromPaste(sourceId) {
+  const ta  = document.getElementById(`paste-${sourceId}`);
+  const src = clSources.find(s => s.id === sourceId);
+  if (!ta || !ta.value.trim()) { showToast('Paste data first'); return; }
+  if (!src) return;
+
+  const txt = ta.value.trim();
+  let content = '';
+  const s1 = txt.indexOf('STOCKLENS DATA'), e1 = txt.indexOf('END DATA');
+  if (s1 !== -1 && e1 !== -1) {
+    content = txt.substring(s1 + 14, e1).trim();
+  } else {
+    const s2 = txt.search(/\bSTOCK\s*:/);
+    if (s2 !== -1) content = txt.substring(s2).trim();
+  }
+  if (!content) { showToast('No data block found'); return; }
+
+  const matches = [...content.matchAll(/\b(STOCK|SECTOR|BIZ_MODEL|MAIN_RISK|hs\d+_\d+|p\d+_\d+)\s*:/g)];
+  if (!matches.length) { showToast('No items found'); return; }
+
+  let n = 0;
+  src.aiFilledItems = {};
+
+  matches.forEach((match, i) => {
+    const key = match[1];
+    const vStart = match.index + match[0].length;
+    const vEnd   = i < matches.length - 1 ? matches[i+1].index : content.length;
+    const value  = content.substring(vStart, vEnd).trim();
+
+    if (key === 'STOCK'    && !document.getElementById('cl-stock').value)    { document.getElementById('cl-stock').value    = value; return; }
+    if (key === 'BIZ_MODEL'&& !document.getElementById('cl-biz-model').value){ document.getElementById('cl-biz-model').value = value; return; }
+    if (key === 'MAIN_RISK'&& !document.getElementById('cl-biz-risk').value) { document.getElementById('cl-biz-risk').value  = value; return; }
+    if (key === 'SECTOR') {
+      if (!document.getElementById('cl-sector').value) {
+        const sel = document.getElementById('cl-sector');
+        for (const o of sel.options) {
+          if (o.value && value.toLowerCase().includes(o.value.toLowerCase().split('/')[0].trim())) {
+            sel.value = o.value; break;
+          }
+        }
+      }
+      return;
+    }
+
+    const parts = value.split('|').map(x => x.trim());
+    const ans = parts[0], conf = parts[1] || 'medium', ev = parts.slice(2).join('|').trim();
+    const clean = (!ans || ans === 'null') ? null : ans;
+
+    if (key.startsWith('hs') && src.hardStops.hasOwnProperty(key) && clean) {
+      src.hardStops[key] = clean;
+    } else if (src.state.hasOwnProperty(key)) {
+      src.state[key] = clean;
+      if (clean) { src.aiFilledItems[key] = { confidence: conf, evidence: ev }; n++; }
+    }
+  });
+
+  ta.value = '';
+  computeComparison();
+  renderChecklistPhases();
+  showToast(`✨ ${n} items filled for ${src.name}`);
+}
+
+function computeComparison() {
+  if (clSources.length === 0) { clComparison = {}; return; }
+  const allItems = CL_DATA.flatMap(ph => ph.sections.flatMap(s => s.items));
+
+  for (const item of allItems) {
+    const id = item.id;
+    const answers = {};
+    for (const src of clSources) {
+      if (src.state[id] !== null && src.state[id] !== undefined) answers[src.id] = src.state[id];
+    }
+    const filled = Object.keys(answers).length;
+    if (filled === 0) { clComparison[id] = { status:'empty', answers:{}, consensus:null }; continue; }
+    if (filled === 1) { clComparison[id] = { status:'isolated', answers, consensus:Object.values(answers)[0] }; }
+    else {
+      const counts = {};
+      for (const ans of Object.values(answers)) counts[ans] = (counts[ans]||0) + 1;
+      const maxCnt = Math.max(...Object.values(counts));
+      const majority = Object.keys(counts).find(k => counts[k] === maxCnt);
+      if (maxCnt === filled)           clComparison[id] = { status:'consensus', answers, consensus:majority };
+      else if (maxCnt > filled / 2)    clComparison[id] = { status:'majority',  answers, consensus:majority };
+      else                             clComparison[id] = { status:'conflict',  answers, consensus:null };
+    }
+    // Auto-fill master from consensus — skip if user manually set this item
+    if (!clMasterOverrides.has(id)) {
+      if (clComparison[id].consensus !== null) clState[id] = clComparison[id].consensus;
+      else if (clComparison[id].status === 'conflict') clState[id] = null;
+    }
+  }
+
+  // Hard stops — take majority
+  CL_HARD_STOPS.forEach(hs => {
+    const id = hs.id;
+    const answers = {};
+    for (const src of clSources) {
+      if (src.hardStops[id]) answers[src.id] = src.hardStops[id];
+    }
+    if (!Object.keys(answers).length) return;
+    const counts = {};
+    for (const ans of Object.values(answers)) counts[ans] = (counts[ans]||0) + 1;
+    const top = Object.keys(counts).sort((a,b) => counts[b]-counts[a])[0];
+    clHardStopState[id] = top;
+    if (top === 'yes') {
+      clHardStopTriggered = true;
+      const h = CL_HARD_STOPS.find(x => x.id === id);
+      clHardStopText = h ? h.text : 'Hard stop triggered.';
+    }
+  });
+
+  updateCLScore();
+}
+
 const PHASE_COLORS = {1:'#3B82F6',2:'#22C55E',3:'#F59E0B',4:'#A78BFA',5:'#2DD4BF'};
 
 // Minimum scored items (Yes or No) required for a valid verdict
@@ -2245,18 +2464,65 @@ const SECTOR_NOTES = {
   },
 };
 
+function fillCurrentSource() {
+  if (clActiveSourceId === 'master') {
+    // Master paste — use old fillFromPaste logic
+    const ta = document.getElementById('paste-current-src');
+    if (!ta) return;
+    // Temporarily swap to fill master
+    const txt = ta.value;
+    ta.value = '';
+    // Create a temporary source, fill it, apply to master
+    const tmpId = 'tmp_' + Date.now();
+    const { state: tmpState, hs: tmpHs } = _srcInitState();
+    clSources.push({ id: tmpId, name: '__tmp__', state: tmpState, hardStops: tmpHs, aiFilledItems: {} });
+    const srcIdx = clSources.length - 1;
+    document.getElementById('paste-current-src').value = txt;
+    const origActive = clActiveSourceId;
+    clActiveSourceId = tmpId;
+    // Re-wire paste box
+    const taEl = document.getElementById(`paste-${tmpId}`);
+    if (taEl) taEl.value = txt;
+    fillSourceFromPaste(tmpId);
+    // Copy to master
+    Object.keys(tmpState).forEach(k => { if (tmpState[k] !== null) { clState[k] = tmpState[k]; clMasterOverrides.add(k); } });
+    Object.keys(tmpHs).forEach(k => { if (tmpHs[k] !== null) clHardStopState[k] = tmpHs[k]; });
+    clSources.splice(srcIdx, 1);
+    clActiveSourceId = origActive;
+    computeComparison();
+    renderChecklistPhases();
+    return;
+  }
+  fillSourceFromPaste(clActiveSourceId);
+}
+
 function renderChecklistPhases() {
   const container = document.getElementById('cl-phases');
   if (!container) return;
 
-  // Check if hard stop already triggered
+  // Show/hide source paste area
+  const pasteSec = document.getElementById('cl-source-paste');
+  if (pasteSec) {
+    if (clActiveSourceId !== 'master') {
+      pasteSec.style.display = 'block';
+      // Ensure the textarea has the right ID for this source
+      const ta = document.getElementById('paste-current-src');
+      if (ta) ta.id = `paste-${clActiveSourceId}`;
+      // Restore for next call
+      setTimeout(() => { const t = document.getElementById(`paste-${clActiveSourceId}`); if (t) t.id = 'paste-current-src'; }, 100);
+    } else {
+      pasteSec.style.display = 'none';
+    }
+  }
+
+  // Hard stop warning
   const hsWarning = clHardStopTriggered ? `
       <div style="margin:12px 16px 0;padding:16px;background:var(--red-bg);border:2px solid var(--red-border);border-radius:var(--r)">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
           <span style="font-size:24px">🚩</span>
           <div style="font-size:14px;font-weight:700;color:var(--red)">Hard Stop Triggered — ${clHardStopText}</div>
         </div>
-        <div style="font-size:12px;color:var(--text3);line-height:1.6">Analysis continues below so you can record your full review. Verdict will be marked as Hard Stop — Skip.</div>
+        <div style="font-size:12px;color:var(--text3);line-height:1.6">Analysis continues below. Verdict locked to Hard Stop — Skip.</div>
       </div>` : '';
 
   // Sector banner
@@ -2295,23 +2561,58 @@ function renderChecklistPhases() {
           </div>`).join('')}
       </div>` : '';
 
+    const isMaster  = clActiveSourceId === 'master';
+    const activeSrc = isMaster ? null : clSources.find(s => s.id === clActiveSourceId);
+
     const itemsHTML = ph.sections.map(sec => `
       <div class="cl-section-hdr">${sec.name}</div>
       ${sec.items.map(it => {
+        if (!isMaster && activeSrc) {
+          // SOURCE VIEW — read-only
+          const ans = activeSrc.state[it.id];
+          const ai  = activeSrc.aiFilledItems[it.id];
+          const badge = ans==='yes' ? '<span class="cmp-badge cmp-yes">Yes</span>'
+                      : ans==='no'  ? '<span class="cmp-badge cmp-no">No</span>'
+                      : ans==='na'  ? '<span class="cmp-badge cmp-na">N/A</span>'
+                      :               '<span class="cmp-badge cmp-na" style="opacity:0.35">—</span>';
+          const ev = ai ? `<div style="font-size:11px;color:var(--accent);margin-top:3px;font-style:italic">${ai.evidence}</div>` : '';
+          return `
+          <div class="cl-item" style="opacity:${ans?1:0.45}">
+            <div class="cl-item-content">
+              <div class="cl-item-text">${it.text}</div>${ev}
+            </div>
+            <div>${badge}</div>
+          </div>`;
+        }
+
+        // MASTER VIEW — interactive + comparison badges
         const aiData = (window.aiFilledItems || {})[it.id];
         const aiBadge = aiData
           ? `<span style="font-size:10px;padding:2px 6px;border-radius:10px;font-weight:600;margin-left:6px;${aiData.confidence==='high'?'background:var(--green-bg);color:var(--green)':'background:var(--yellow-bg);color:var(--yellow)'}"> ${aiData.confidence==='high'?'🟢':'🟡'} AI</span>`
           : '';
-        const aiEvidence = aiData
-          ? `<div style="font-size:11px;color:var(--accent);margin-top:3px;font-style:italic">${aiData.evidence}</div>`
-          : '';
+        const aiEvidence = aiData ? `<div style="font-size:11px;color:var(--accent);margin-top:3px;font-style:italic">${aiData.evidence}</div>` : '';
+
+        // Comparison row
+        let compRow = '';
+        if (clSources.length > 0) {
+          const comp = clComparison[it.id];
+          const dot  = comp
+            ? comp.status==='consensus'?'🟢':comp.status==='majority'?'🟡':comp.status==='conflict'?'🔴':'⚪' : '';
+          const srcBadges = clSources.map(src => {
+            const a = src.state[it.id];
+            if (!a) return '';
+            const cls = a==='yes'?'cmp-yes':a==='no'?'cmp-no':'cmp-na';
+            return `<span class="cmp-badge ${cls}" title="${src.name}: ${a}" onclick="setCL('${it.id}','${a}')" style="cursor:pointer">${src.name[0]}:${a}</span>`;
+          }).filter(Boolean).join('');
+          if (dot || srcBadges) compRow = `<div class="cl-comparison-row"><span style="font-size:11px">${dot}</span>${srcBadges}</div>`;
+        }
+
         return `
         <div class="cl-item ${clState[it.id]?'answered-'+clState[it.id]:''}" id="cli-${it.id}">
           <div class="cl-item-content">
             <div class="cl-item-text">${it.text}${aiBadge}</div>
             <div class="cl-item-hint">${it.hint}</div>
-            ${getSectorHint(it)}
-            ${aiEvidence}
+            ${getSectorHint(it)}${aiEvidence}${compRow}
             <div class="cl-item-wt">${it.weight>0?it.weight+' pt'+(it.weight!==1?'s':''):'Reference only'}</div>
           </div>
           <div class="cl-btns">
@@ -2371,6 +2672,7 @@ function togglePhase(n) {
 
 function setCL(id, val) {
   clState[id] = val;
+  clMasterOverrides.add(id); // mark as manually set
   const row = document.getElementById('cli-'+id);
   if(row){
     row.className = 'cl-item answered-'+val;
@@ -2428,85 +2730,139 @@ function updateCLScore() {
 let currentResumeId = null; // tracks if we're resuming a saved analysis
 
 function resumeChecklist(a) {
-  // Restore all state from saved analysis
-  currentResumeId = a.id;
+  resetChecklist();
+  currentResumeId = a.isWip ? null : a.id;
+  clWipId = a.isWip ? a.id : null;
 
-  // Restore hard stop state
-  if (a.hardStops) {
-    Object.keys(a.hardStops).forEach(id => { clHardStopState[id] = a.hardStops[id]; });
+  // Restore master state
+  const stateSource = a.masterState || a.scores || {};
+  const hsSource    = a.masterHardStops || a.hardStops || {};
+  Object.keys(stateSource).forEach(id => { if (clState.hasOwnProperty(id)) clState[id] = stateSource[id]; });
+  Object.keys(hsSource).forEach(id => { if (clHardStopState.hasOwnProperty(id)) clHardStopState[id] = hsSource[id]; });
+  if (a.masterOverrides) a.masterOverrides.forEach(id => clMasterOverrides.add(id));
+
+  // Restore sources (WIP only)
+  if (a.isWip && a.sources) {
+    clSources = a.sources.map(s => ({
+      id: s.id, name: s.name,
+      state: { ..._srcInitState().state, ...s.state },
+      hardStops: { ..._srcInitState().hs, ...s.hardStops },
+      aiFilledItems: s.aiFilledItems || {}
+    }));
+    computeComparison();
   }
 
-  // Restore scored items
-  if (a.scores) {
-    Object.keys(a.scores).forEach(id => { clState[id] = a.scores[id]; });
-  }
-
-  // Check if any hard stop triggered
-  clHardStopTriggered = Object.values(clHardStopState).some(v => v === 'yes');
+  clHardStopTriggered = a.hardStopTriggered || Object.values(clHardStopState).some(v => v === 'yes');
   if (clHardStopTriggered) {
     const triggeredHs = CL_HARD_STOPS.find(hs => clHardStopState[hs.id] === 'yes');
-    clHardStopText = triggeredHs ? triggeredHs.text.replace('?','') + ' — hard reject condition.' : 'Hard stop triggered.';
+    clHardStopText = a.hardStopText || (triggeredHs ? triggeredHs.text : 'Hard stop triggered.');
   }
 
-  // Navigate to checklist and populate fields
   navigate('checklist');
   setTimeout(() => {
-    const stock = document.getElementById('cl-stock');
-    const date  = document.getElementById('cl-date');
+    const stock  = document.getElementById('cl-stock');
+    const date   = document.getElementById('cl-date');
     const sector = document.getElementById('cl-sector');
-    const biz   = document.getElementById('cl-biz-model');
-    const risk  = document.getElementById('cl-biz-risk');
-    const notes = document.getElementById('cl-notes');
-    if (stock)  stock.value  = a.stock || '';
-    if (date)   date.value   = a.date  || todayStr();
-    if (sector) sector.value = a.sector || '';
+    const biz    = document.getElementById('cl-biz-model');
+    const risk   = document.getElementById('cl-biz-risk');
+    const notes  = document.getElementById('cl-notes');
+    if (stock)  stock.value  = a.stock    || '';
+    if (date)   date.value   = a.date     || todayStr();
+    if (sector) sector.value = a.sector   || '';
     if (biz)    biz.value    = a.bizModel || '';
     if (risk)   risk.value   = a.bizRisk  || '';
     if (notes)  notes.value  = a.notes    || '';
+    renderSourceTabs();
     renderChecklistPhases();
     updateCLScore();
   }, 50);
 }
 
-async function saveChecklist() {
+async function saveWip() {
+  const stock = document.getElementById('cl-stock').value.trim().toUpperCase();
+  if (!stock) { showToast('Enter a stock name first'); return; }
+
+  const wipData = {
+    stock, date: document.getElementById('cl-date').value,
+    framework: 'Checklist-WIP',
+    sector: document.getElementById('cl-sector').value,
+    bizModel: document.getElementById('cl-biz-model').value.trim(),
+    bizRisk: document.getElementById('cl-biz-risk').value.trim(),
+    notes: document.getElementById('cl-notes').value.trim(),
+    masterState: { ...clState },
+    masterHardStops: { ...clHardStopState },
+    masterOverrides: [...clMasterOverrides],
+    sources: clSources.map(s => ({ id: s.id, name: s.name, state: s.state, hardStops: s.hardStops, aiFilledItems: s.aiFilledItems })),
+    hardStopTriggered: clHardStopTriggered,
+    hardStopText: clHardStopText,
+    verdictKey: 'wip', verdictLabel: '🗂 Work in Progress',
+    isWip: true
+  };
+
+  if (clWipId) await Store.deleteAnalysis(clWipId);
+  await Store.saveAnalysis(wipData);
+  showToast('🗂 Work in Progress saved — resume anytime');
+  updateBadge();
+}
+
+async function saveFinalAnalysis() {
   const stock = document.getElementById('cl-stock').value.trim().toUpperCase();
   const date  = document.getElementById('cl-date').value;
-  if(!stock){showToast('Enter a stock name first');return;}
-  const allItems = CL_DATA.flatMap(ph=>ph.sections.flatMap(s=>s.items));
-  const yesPts = allItems.filter(it=>clState[it.id]==='yes').reduce((s,it)=>s+it.weight,0);
-  const naPts  = allItems.filter(it=>clState[it.id]==='na').reduce((s,it)=>s+it.weight,0);
-  const maxPts = allItems.reduce((s,it)=>s+it.weight,0)-naPts;
-  const pct    = maxPts>0?yesPts/maxPts:0;
-  let verdictKey,verdictLabel;
-  if(clHardStopTriggered){verdictKey='red';verdictLabel='Hard Stop — Skip';}
-  else if(pct>=0.8){verdictKey='green';verdictLabel='High Conviction';}
-  else if(pct>=0.6){verdictKey='yellow';verdictLabel='Medium Conviction';}
-  else{verdictKey='red';verdictLabel='Low Conviction';}
-  await Store.saveAnalysis({
-    stock,date,framework:'Checklist',
-    sector:document.getElementById('cl-sector').value,
-    bizModel:document.getElementById('cl-biz-model').value.trim(),
-    bizRisk:document.getElementById('cl-biz-risk').value.trim(),
-    scores:{...clState},hardStops:{...clHardStopState},
-    hardStopTriggered:clHardStopTriggered,
-    yesPts,maxPts,verdictKey,verdictLabel,
-    notes:document.getElementById('cl-notes').value.trim()
-  });
-  // If resuming, delete the old partial save
-  if (currentResumeId) {
-    await Store.deleteAnalysis(currentResumeId);
-    currentResumeId = null;
+  if (!stock) { showToast('Enter a stock name first'); return; }
+
+  const allItems = CL_DATA.flatMap(ph => ph.sections.flatMap(s => s.items));
+  const yesPts = allItems.filter(it => clState[it.id]==='yes').reduce((s,it) => s+it.weight, 0);
+  const naPts  = allItems.filter(it => clState[it.id]==='na').reduce((s,it) => s+it.weight, 0);
+  const maxPts = allItems.reduce((s,it) => s+it.weight, 0) - naPts;
+  const pct    = maxPts > 0 ? yesPts / maxPts : 0;
+  const answeredCount = allItems.filter(it => clState[it.id]==='yes'||clState[it.id]==='no').length;
+
+  if (answeredCount < CL_MIN_ANSWERED && !clHardStopTriggered) {
+    showToast(`Answer at least ${CL_MIN_ANSWERED} items before saving final (${answeredCount} so far)`);
+    return;
   }
-  showToast('Checklist saved');
+
+  let verdictKey, verdictLabel;
+  if (clHardStopTriggered) { verdictKey='red'; verdictLabel='🚩 Hard Stop — Skip'; }
+  else if (pct >= 0.80) { verdictKey='green'; verdictLabel='🟢 High Conviction — Full Position'; }
+  else if (pct >= 0.60) { verdictKey='yellow'; verdictLabel='🟡 Medium Conviction — Half Position'; }
+  else { verdictKey='red'; verdictLabel='🔴 Avoid'; }
+
+  await Store.saveAnalysis({
+    stock, date, framework:'Checklist',
+    sector: document.getElementById('cl-sector').value,
+    bizModel: document.getElementById('cl-biz-model').value.trim(),
+    bizRisk: document.getElementById('cl-biz-risk').value.trim(),
+    scores: { ...clState }, hardStops: { ...clHardStopState },
+    hardStopTriggered: clHardStopTriggered,
+    sourcesUsed: clSources.length,
+    sourceNames: clSources.map(s => s.name),
+    yesPts, maxPts, verdictKey, verdictLabel,
+    notes: document.getElementById('cl-notes').value.trim(),
+    isWip: false
+  });
+
+  // Delete WIP if one existed
+  if (clWipId) { await Store.deleteAnalysis(clWipId); clWipId = null; }
+
+  showToast('💾 Final analysis saved');
   updateBadge();
   resetChecklist();
-  setTimeout(()=>navigate('saved'),600);
+  setTimeout(() => navigate('saved'), 600);
 }
+
+async function saveChecklist() { await saveFinalAnalysis(); } // backward compat
+  const stock = document.getElementById('cl-stock').value.trim().toUpperCase();
+
 
 function resetChecklist() {
   currentResumeId = null;
+  clWipId = null;
   window.aiFilledItems = {};
-  Object.keys(clState).forEach(k=>clState[k]=null);
+  clSources = [];
+  clComparison = {};
+  clMasterOverrides = new Set();
+  clActiveSourceId = 'master';
   Object.keys(clHardStopState).forEach(k=>clHardStopState[k]=null);
   Object.keys(phaseOpen).forEach(k=>phaseOpen[k]=k==='1');
   clHardStopTriggered=false; clHardStopText='';
@@ -2861,8 +3217,9 @@ function openDetail(id) {
       ${a.bizRisk  ? `<p class="section-label">Main Risk</p><div class="card"><p style="font-size:13px;color:var(--text2);line-height:1.6">${a.bizRisk}</p></div>` : ''}
       <p class="section-label">Phase Scores · ${a.yesPts} / ${a.maxPts} total</p>
       <div class="card" style="padding:0 16px">${phaseRows}</div>
+      ${a.sourcesUsed ? `<p style="font-size:12px;color:var(--text3);margin:8px 16px 0">Sources used: ${a.sourceNames?.join(', ') || a.sourcesUsed}</p>` : ''}
       <div style="margin:12px 16px 0">
-        <button class="btn btn-primary" onclick="resumeChecklist(Store.getAnalyses().find(x=>x.id===${a.id}))">↩ Resume & Continue Analysis</button>
+        <button class="btn ${a.isWip?'btn-primary':'btn-ghost'}" onclick="resumeChecklist(Store.getAnalyses().find(x=>x.id===${a.id}))">${a.isWip?'↩ Resume Work in Progress':'↩ Re-open & Edit Analysis'}</button>
       </div>`;
   } else {
     const rows = [
