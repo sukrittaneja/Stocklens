@@ -1722,15 +1722,33 @@ function fillFromPaste() {
   const txt = ta ? ta.value : '';
   if (!txt.trim()) { showToast('Paste the data block first'); return; }
 
-  const s = txt.indexOf('STOCKLENS DATA');
-  const e = txt.indexOf('END DATA');
-  if (s === -1 || e === -1) { showToast('No STOCKLENS DATA block found — paste the full block'); return; }
+  const blockContent = txt.trim();
 
-  const blockContent = txt.substring(s + 14, e).trim();
+  // Find data block — try multiple detection strategies
+  // Strategy 1: look for STOCKLENS DATA marker
+  let content = '';
+  const s1 = blockContent.indexOf('STOCKLENS DATA');
+  const e1 = blockContent.indexOf('END DATA');
+  if (s1 !== -1 && e1 !== -1) {
+    content = blockContent.substring(s1 + 14, e1).trim();
+  } else {
+    // Strategy 2: look for STOCK: as start (ChatGPT sometimes skips the === markers)
+    const s2 = blockContent.search(/\bSTOCK\s*:/);
+    if (s2 !== -1) {
+      // Use everything from STOCK: to END DATA or end of text
+      const e2 = e1 !== -1 ? e1 : blockContent.length;
+      content = blockContent.substring(s2, e2).trim();
+    }
+  }
+
+  if (!content) {
+    showToast('No data block found — paste from STOCK: to END DATA');
+    return;
+  }
 
   // Match all keys and extract values between them
   const keyPattern = /\b(STOCK|SECTOR|BIZ_MODEL|MAIN_RISK|hs\d+_\d+|p\d+_\d+)\s*:/g;
-  const matches = [...blockContent.matchAll(keyPattern)];
+  const matches = [...content.matchAll(keyPattern)];
   if (matches.length === 0) { showToast('No items found in data block'); return; }
 
   let n = 0;
@@ -1739,8 +1757,8 @@ function fillFromPaste() {
   matches.forEach((match, i) => {
     const key = match[1];
     const valueStart = match.index + match[0].length;
-    const valueEnd = i < matches.length - 1 ? matches[i + 1].index : blockContent.length;
-    const value = blockContent.substring(valueStart, valueEnd).trim();
+    const valueEnd = i < matches.length - 1 ? matches[i + 1].index : content.length;
+    const value = content.substring(valueStart, valueEnd).trim();
 
     if (key === 'STOCK')    { document.getElementById('cl-stock').value    = value; return; }
     if (key === 'SECTOR')   {
