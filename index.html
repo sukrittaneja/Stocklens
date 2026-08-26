@@ -2303,6 +2303,7 @@ function setActiveSource(id) {
   if (filtersEl) filtersEl.style.display = id === 'master' ? 'flex' : 'none';
   renderSourceTabs();
   renderChecklistPhases();
+  updateCLScore(); // refresh score bar for the now-active tab
   // Update paste box label
   const label = document.getElementById('cl-paste-label');
   const btn   = document.getElementById('cl-paste-btn');
