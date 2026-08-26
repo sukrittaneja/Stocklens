@@ -2798,36 +2798,54 @@ function setCL(id, val) {
 }
 
 function updateCLScore() {
-  const allItems  = CL_DATA.flatMap(ph=>ph.sections.flatMap(s=>s.items));
-  const scoredItems = allItems.filter(it => clState[it.id]==='yes' || clState[it.id]==='no');
-  const yesPts    = allItems.filter(it=>clState[it.id]==='yes').reduce((s,it)=>s+it.weight,0);
-  const naPts     = allItems.filter(it=>clState[it.id]==='na').reduce((s,it)=>s+it.weight,0);
-  const maxPts    = allItems.reduce((s,it)=>s+it.weight,0) - naPts;
-  const pct       = maxPts>0?yesPts/maxPts:0;
-  const answeredCount = scoredItems.length;
+  const allItems  = CL_DATA.flatMap(ph => ph.sections.flatMap(s => s.items));
+  const bar       = document.getElementById('cl-progress-bar');
+  const scoreText = document.getElementById('cl-score-text');
+  const verdictEl = document.getElementById('cl-verdict-text');
+  const card      = document.getElementById('cl-score-bar');
 
-  const card = document.getElementById('cl-score-bar');
-  const bar  = document.getElementById('cl-progress-bar');
-  if(!card||!bar) return;
-  document.getElementById('cl-score-text').textContent = yesPts+' / '+maxPts+' pts';
-  bar.style.width = (pct*100).toFixed(0)+'%';
+  if (clActiveSourceId !== 'master') {
+    const src = clSources.find(s => s.id === clActiveSourceId);
+    if (src) {
+      const filled = allItems.filter(it => src.state[it.id] !== null).length;
+      const pct = filled / allItems.length;
+      if (bar)       bar.style.width = (pct*100).toFixed(0)+'%';
+      if (scoreText) scoreText.textContent = filled+' / '+allItems.length+' items filled';
+      if (verdictEl) verdictEl.textContent = src.name+' source view';
+      if (card)      card.className = 'verdict-card neutral';
+      if (bar)       bar.style.background = 'var(--accent)';
+    }
+    return;
+  }
+
+  const yesPts = allItems.filter(it=>clState[it.id]==='yes').reduce((s,it)=>s+it.weight,0);
+  const naPts  = allItems.filter(it=>clState[it.id]==='na').reduce((s,it)=>s+it.weight,0);
+  const maxPts = allItems.reduce((s,it)=>s+it.weight,0) - naPts;
+  const pct    = maxPts>0?yesPts/maxPts:0;
+  const answeredCount = allItems.filter(it=>clState[it.id]==='yes'||clState[it.id]==='no').length;
+  const manualCount   = allItems.filter(it=>clMasterOverrides.has(it.id)&&clState[it.id]!==null).length;
+  const autoCount     = answeredCount - manualCount;
+  const autoNote      = autoCount>0&&clSources.length>0?' ('+manualCount+' verified · '+autoCount+' auto)':'';
+
+  if (bar)       bar.style.width = (pct*100).toFixed(0)+'%';
+  if (scoreText) scoreText.textContent = yesPts+' / '+maxPts+' pts'+autoNote;
 
   if (answeredCount < CL_MIN_ANSWERED) {
-    card.className = 'verdict-card neutral';
-    document.getElementById('cl-verdict-text').textContent = `Answer ${CL_MIN_ANSWERED - answeredCount} more items for verdict`;
-    bar.style.background = 'var(--accent)';
-  } else if(pct>=0.8){
-    card.className='verdict-card green';
-    document.getElementById('cl-verdict-text').textContent='🟢 High Conviction — Full Position';
-    bar.style.background='var(--green)';
-  } else if(pct>=0.6){
-    card.className='verdict-card yellow';
-    document.getElementById('cl-verdict-text').textContent='🟡 Medium Conviction — Half Position';
-    bar.style.background='var(--yellow)';
+    if (card)      card.className='verdict-card neutral';
+    if (verdictEl) verdictEl.textContent='Answer '+(CL_MIN_ANSWERED-answeredCount)+' more items for verdict';
+    if (bar)       bar.style.background='var(--accent)';
+  } else if (pct>=0.8) {
+    if (card)      card.className='verdict-card green';
+    if (verdictEl) verdictEl.textContent='🟢 High Conviction — Full Position';
+    if (bar)       bar.style.background='var(--green)';
+  } else if (pct>=0.6) {
+    if (card)      card.className='verdict-card yellow';
+    if (verdictEl) verdictEl.textContent='🟡 Medium Conviction — Half Position';
+    if (bar)       bar.style.background='var(--yellow)';
   } else {
-    card.className='verdict-card red';
-    document.getElementById('cl-verdict-text').textContent='🔴 Low Conviction — Avoid';
-    bar.style.background='var(--red)';
+    if (card)      card.className='verdict-card red';
+    if (verdictEl) verdictEl.textContent='🔴 Low Conviction — Avoid';
+    if (bar)       bar.style.background='var(--red)';
   }
 }
 
