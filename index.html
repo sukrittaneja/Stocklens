@@ -2093,7 +2093,7 @@ const CL_HARD_STOPS = [
   {id:'hs1_4', phase:1, text:'OCF persistently below Net Profit for 3+ years?', hint:'Screener.in → Cash Flow. Profit without cash = earnings quality problem.'},
   // Phase 2
   {id:'hs2_1', phase:2, text:'PE > 2x own 5yr average with no extraordinary growth reason?', hint:'Paying double the historical multiple means the margin of safety is gone.'},
-  {id:'hs2_2', phase:2, text:'FCF Yield negative?', hint:'Company not generating free cash. Paying to hold it.'},
+  {id:'hs2_2', phase:2, text:'EPS declining for 3+ consecutive quarters?', hint:'Screener.in → Quarterly EPS trend. Sustained earnings decline = structural problem.'},
   // Phase 3
   {id:'hs3_1', phase:3, text:'EPS declining for 3+ consecutive quarters?', hint:'Screener.in → Quarters tab. Sustained EPS decline = structural problem.'},
   // Phase 4
@@ -3555,6 +3555,32 @@ document.addEventListener('DOMContentLoaded', async () => {
       <div class="card">
         <div style="font-size:12px;color:var(--text2);margin-bottom:6px;line-height:1.7">• <strong>Save Work in Progress</strong> — saves everything including all sources. Fully resumable later with all source tabs intact.</div>
         <div style="font-size:12px;color:var(--text2);line-height:1.7">• <strong>Save Final Analysis</strong> — saves only your Master column verdict. Goes to Saved and syncs across all your devices. This is your investment record.</div>
+      </div>
+
+      <p class="section-label">The 9 Hard Stops</p>
+      <div class="card">
+        <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:10px">Hard stops are automatic reject conditions. If triggered, the verdict locks to Skip — but you can still complete the full analysis for reference. Answer <strong>Yes if the bad condition is present</strong>.</p>
+        <div style="font-size:12px;color:var(--text3);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Phase 1 — Immediate Reject</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:10px">
+          <div style="display:flex;gap:8px;padding:3px 0;border-bottom:1px solid var(--border)"><span style="color:var(--red);font-weight:700;min-width:16px">1</span><span>Promoter pledge above 50%</span></div>
+          <div style="display:flex;gap:8px;padding:3px 0;border-bottom:1px solid var(--border)"><span style="color:var(--red);font-weight:700;min-width:16px">2</span><span>Proven fraud or serious governance issue in last 3 years</span></div>
+          <div style="display:flex;gap:8px;padding:3px 0;border-bottom:1px solid var(--border)"><span style="color:var(--red);font-weight:700;min-width:16px">3</span><span>Debt/Equity above 2x — excluding BFSI and regulated infra</span></div>
+          <div style="display:flex;gap:8px;padding:3px 0"><span style="color:var(--red);font-weight:700;min-width:16px">4</span><span>OCF persistently below Net Profit for 3+ years</span></div>
+        </div>
+        <div style="font-size:12px;color:var(--text3);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Phase 2 — Valuation</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:10px">
+          <div style="display:flex;gap:8px;padding:3px 0;border-bottom:1px solid var(--border)"><span style="color:var(--red);font-weight:700;min-width:16px">5</span><span>PE above 2x own 5yr average with no extraordinary growth justification</span></div>
+          <div style="display:flex;gap:8px;padding:3px 0"><span style="color:var(--red);font-weight:700;min-width:16px">6</span><span>FCF Yield negative — note: expected for Early-stage / Turnaround stocks</span></div>
+        </div>
+        <div style="font-size:12px;color:var(--text3);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Phase 3 — Earnings</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:10px">
+          <div style="display:flex;gap:8px;padding:3px 0"><span style="color:var(--red);font-weight:700;min-width:16px">7</span><span>EPS declining for 3 or more consecutive quarters</span></div>
+        </div>
+        <div style="font-size:12px;color:var(--text3);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Phase 4 — Institutional Flow</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.8">
+          <div style="display:flex;gap:8px;padding:3px 0;border-bottom:1px solid var(--border)"><span style="color:var(--red);font-weight:700;min-width:16px">8</span><span>FII and DII both reducing simultaneously</span></div>
+          <div style="display:flex;gap:8px;padding:3px 0"><span style="color:var(--red);font-weight:700;min-width:16px">9</span><span>Promoter selling aggressively — more than 2% in last 2 quarters</span></div>
+        </div>
       </div>
 
       <p class="section-label">Watchlist</p>
